@@ -28,10 +28,6 @@ async function formatError(response) {
   return `Request failed: ${response.status}`;
 }
 
-export function getDemoTasks() {
-  return request("/api/demo-tasks");
-}
-
 export function createTask(config) {
   return request("/api/tasks", {
     method: "POST",
@@ -39,10 +35,39 @@ export function createTask(config) {
   });
 }
 
+export async function getProviderStatus() {
+  const envelope = await request("/api/v1/provider-status");
+  return envelope.data;
+}
+
 export async function createTaskV1(config) {
   const envelope = await request("/api/v1/tasks", {
     method: "POST",
     body: JSON.stringify(config),
+  });
+  return envelope.data;
+}
+
+export async function polishAnalysisGoals(payload) {
+  const envelope = await request("/api/v1/analysis-goals/polish", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return envelope.data;
+}
+
+export async function condenseAnalysisGoals(payload) {
+  const envelope = await request("/api/v1/analysis-goals/condense", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return envelope.data;
+}
+
+export async function recommendCompetitors(payload) {
+  const envelope = await request("/api/v1/competitors/recommend", {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
   return envelope.data;
 }

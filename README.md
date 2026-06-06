@@ -2,7 +2,7 @@
 
 基于 V1.2 PRD 的证据优先竞品分析 Agent 协作系统。
 
-当前首个可运行版本是一个 **无需密钥的 LangGraph 演示版**。它不需要真实的 AnySearch 或 Seed API Key，而是使用确定性的 fixtures 和 mock providers 来验证核心工作流：
+当前版本是一个真实 Provider 驱动的 LangGraph 竞品分析工作台。运行前必须配置搜索与 LLM Provider；业务流程默认禁止 mock / fixture fallback：
 
 ```text
 任务配置
@@ -32,6 +32,8 @@
 - 报告结构化输出：FeatureTree、PricingModel、UserPersona、SWOT。
 - Agent Trace 记录 prompt/input/output/token/latency/provider/request id 字段。
 - Demo fixture run 与 Live provider run 在 Trust Summary、ToolCall、Trace 中明确标注。
+- DeepSeek LLM provider：支持 `claim_enrichment`、`review_ticket_suggestions`、`report_enhancement` 和查询竞品目标 AI 润色。
+- DuckDuckGo SearchProvider：无搜索 API Key 时可使用公开搜索结果替代 fixtures。
 - 本地启动和 Docker Compose 启动路径。
 
 ## 快速开始
@@ -85,18 +87,19 @@ docker compose up --build
 http://localhost:5173
 ```
 
-## 演示脚本
+## 使用流程
 
 1. 打开前端页面。
-2. 选择 `AI 工具增强 Demo`。
-3. 点击 `Run analysis`。
-4. 查看 `Agent Trace`。
-5. 找到 Critic Agent 针对 pricing / feature / target_user / security / contradiction 缺口创建的 Review Ticket。
-6. 确认 Research Agent 执行补充搜索，并观察 ticket 从 open 进入 resolved / dismissed 等状态。
-7. 打开 `Evidence & Claims`。
-8. 确认被纳入的结论都有证据支撑，无支撑结论已被降级。
-9. 打开 `Final Report`。
-10. 确认报告列出了 FeatureTree、PricingModel、UserPersona、SWOT、evidence id、来源和不确定性说明。
+2. 点击“新建真实分析”。
+3. 填写目标产品、竞品和分析目标，确认 Provider 状态已就绪。
+4. 点击“开始分析”。
+5. 查看 `Agent Trace`。
+6. 找到 Critic Agent 针对 pricing / feature / target_user / security / contradiction 缺口创建的 Review Ticket。
+7. 确认 Research Agent 执行补充搜索，并观察 ticket 从 open 进入 resolved / dismissed 等状态。
+8. 打开 `Evidence & Claims`。
+9. 确认被纳入的结论都有证据支撑，无支撑结论已被降级。
+10. 打开 `Final Report`。
+11. 确认报告列出了 FeatureTree、PricingModel、UserPersona、SWOT、evidence id、来源和不确定性说明。
 
 ## 架构
 
@@ -108,9 +111,9 @@ backend/
   FastAPI
   LangGraph StateGraph
   SQLite 存储
-  MockSearchProvider
-  MockLLMProvider
-  Demo fixtures
+  SearchProvider: DuckDuckGo / AnySearch / Mock
+  LLMProvider: DeepSeek / Seed / Mock
+  Demo fixtures fallback
 ```
 
 核心图：
@@ -135,11 +138,13 @@ planner
 - 本地无密钥演示：已支持。
 - LangGraph 编排：已支持。
 - SQLite 持久化：已支持。
-- Mock SearchProvider：已支持。
-- Mock LLMProvider：已支持。
+- Mock SearchProvider：已支持，用于离线演示或显式 fallback。
+- Mock LLMProvider：已支持，用于离线演示或显式 fallback。
 - Provider 抽象接口：已支持基础接口和 `.env` 驱动 factory。
 - AnySearch API Provider：已支持真实 API 调用、空结果 fallback 和请求失败 fallback。
-- Seed LLM Provider：已支持 adapter 和 `.env` 切换；Analyst、Critic、Writer 已通过 provider 接口调用结构化补强。
+- DuckDuckGo Search Provider：已支持公开网页搜索，无需搜索 API Key。
+- Seed LLM Provider：已支持 adapter 和 `.env` 切换。
+- DeepSeek LLM Provider：已支持 OpenAI-compatible Chat Completions，Analyst、Critic、Writer 和目标润色均通过 provider 接口调用结构化输出。
 - SSE 实时流式输出：已支持 `/api/v1/tasks/{task_id}/run/stream`。
 - 生产服务器加固：首个演示版未包含。
 
@@ -165,7 +170,7 @@ PRD 中的主要 Agent 当前以 LangGraph 节点函数实现，位置在 `backe
 
 ## API Key 配置
 
-演示版不需要真实 API Key。接入 AnySearch / Seed 时，把密钥放在根目录 `.env`，不要放在前端代码或 `frontend/.env` 中：
+离线演示不需要真实 API Key。接入 DeepSeek / AnySearch 时，把密钥放在根目录 `.env`，不要放在前端代码或 `frontend/.env` 中：
 
 ```bash
 cp .env.example .env
@@ -174,9 +179,14 @@ cp .env.example .env
 ```env
 USE_MOCK_SEARCH=false
 USE_MOCK_LLM=false
+SEARCH_PROVIDER=duckduckgo
 ANYSEARCH_API_KEY=你的_anysearch_key
 ANYSEARCH_BASE_URL=https://api.anysearch.com/v1/search
 ANYSEARCH_MAX_RESULTS=5
+LLM_PROVIDER=deepseek
+DEEPSEEK_API_KEY=你的_deepseek_key
+DEEPSEEK_BASE_URL=https://api.deepseek.com/chat/completions
+DEEPSEEK_MODEL=deepseek-4-flash
 SEED_API_KEY=你的_seed_key
 SEED_BASE_URL=你的_seed_base_url
 SEED_MODEL=你的_seed_model
@@ -185,13 +195,13 @@ ALLOW_EMPTY_SEARCH_FALLBACK=true
 DATABASE_URL=sqlite:///./data/app.db
 ```
 
-注意：真实 AnySearch 请求如果返回空结果或请求失败，在 `ALLOW_PROVIDER_FALLBACK=true` 时会回退到 fixtures，并在 Agent Trace / ToolCall 中记录 fallback 原因，保证 no-key demo 和外部服务异常时仍可运行。
+注意：真实搜索或 LLM 请求如果返回空结果或失败，在 `ALLOW_PROVIDER_FALLBACK=true` 时可能回退到 fixtures，并在 Agent Trace / ToolCall 中记录 fallback 原因。需要证明“没有 mock”时，把 `ALLOW_PROVIDER_FALLBACK=false` 和 `ALLOW_EMPTY_SEARCH_FALLBACK=false` 一起设置。
 
 ## API 接口
 
 ```text
 GET  /health
-GET  /api/demo-tasks
+GET  /api/v1/provider-status
 GET  /api/tasks
 POST /api/tasks
 GET  /api/tasks/{task_id}
@@ -200,4 +210,5 @@ GET  /api/tasks/{task_id}/trace
 GET  /api/tasks/{task_id}/evidence
 GET  /api/tasks/{task_id}/claims
 GET  /api/tasks/{task_id}/report
+POST /api/v1/analysis-goals/polish
 ```

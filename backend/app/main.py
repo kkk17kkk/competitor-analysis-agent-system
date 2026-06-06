@@ -6,7 +6,7 @@ from app.api.routes import router
 
 app = FastAPI(
     title="Competitor Analysis Agent System",
-    description="No-key LangGraph demo for evidence-first competitor analysis.",
+    description="Evidence-first competitor analysis with real provider and fallback modes.",
     version="0.1.0",
 )
 
@@ -21,7 +21,7 @@ app.add_middleware(
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "mode": "no-key-langgraph-demo"}
+    return {"status": "ok", "mode": "provider-configured-langgraph"}
 
 
 app.include_router(router, prefix="/api")

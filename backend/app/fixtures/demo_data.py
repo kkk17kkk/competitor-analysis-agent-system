@@ -39,6 +39,8 @@ AI_TOOLS_FIXTURES = {
             "evidence_type": "feature",
             "summary": "Cursor feature coverage centers on editor-native AI, codebase context, and agent workflows.",
             "locator": "Features page fixture",
+            "interaction_steps": ["Editor", "Agent panel", "Context picker", "Codebase search", "Apply changes"],
+            "interaction_summary": "Cursor's agent workflow is represented as an editor path from the agent panel through context selection to applying code changes.",
         },
         {
             "title": "Cursor Teams and Enterprise",
@@ -91,6 +93,8 @@ AI_TOOLS_FIXTURES = {
             "evidence_type": "feature",
             "summary": "GitHub Copilot combines IDE assistance, chat, pull request support, and coding-agent capabilities.",
             "locator": "Docs fixture",
+            "interaction_steps": ["GitHub project", "Copilot menu", "Chat", "Agent task", "Pull request review"],
+            "interaction_summary": "GitHub Copilot workflow is represented as a path from repository context into Copilot chat, agent task handling, and pull request review.",
         },
         {
             "title": "GitHub Copilot Business",
@@ -143,6 +147,8 @@ AI_TOOLS_FIXTURES = {
             "evidence_type": "feature",
             "summary": "Windsurf feature coverage emphasizes agentic coding and codebase understanding.",
             "locator": "Editor fixture",
+            "interaction_steps": ["Editor", "Cascade panel", "Prompt input", "Codebase context", "Run suggested change"],
+            "interaction_summary": "Windsurf's agentic coding workflow is represented as an editor path through Cascade, prompt input, context selection, and suggested code changes.",
         },
         {
             "title": "Windsurf Teams",
@@ -175,6 +181,8 @@ AI_TOOLS_FIXTURES = {
             "evidence_type": "feature",
             "summary": "TRAE feature coverage highlights AI IDE assistance and development workflow support.",
             "locator": "Features fixture",
+            "interaction_steps": ["IDE", "AI assistant", "Task prompt", "Generated change", "Review result"],
+            "interaction_summary": "TRAE's AI IDE workflow is represented as a path from assistant invocation to generated change review.",
         }
     ],
     "TRAE_SUPPLEMENT": [

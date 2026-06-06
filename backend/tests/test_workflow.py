@@ -1,7 +1,8 @@
 import pytest
 
 from app.core.graph import run_workflow
-from app.models.schemas import Claim, Evidence, GraphState, Source, Task, TaskConfig
+from app.core.nodes import source_normalizer_node, trust_summary_node, writer_node
+from app.models.schemas import Claim, Evidence, GraphState, ReviewTicket, SearchPlan, SearchQuery, Source, Task, TaskConfig
 
 
 @pytest.fixture(autouse=True)
@@ -19,13 +20,22 @@ def test_provider_factory_selects_anysearch_when_configured():
         ProviderSettings(
             use_mock_search=False,
             use_mock_llm=True,
+            search_provider="anysearch",
             anysearch_api_key="test-key",
             anysearch_base_url="https://api.anysearch.com/v1/search",
             anysearch_max_results=3,
             anysearch_content_types=(),
+            llm_provider="seed",
+            deepseek_api_key="",
+            deepseek_base_url="https://api.deepseek.com/chat/completions",
+            deepseek_model="deepseek-chat",
             seed_api_key="",
             seed_base_url="",
             seed_model="",
+            lightweight_llm_provider="seed",
+            lightweight_seed_api_key="test-key",
+            lightweight_seed_base_url="https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+            lightweight_seed_model="ep-test",
             allow_provider_fallback=True,
             allow_empty_search_fallback=True,
         )
@@ -38,6 +48,58 @@ def test_provider_factory_selects_anysearch_when_configured():
     assert bundle.fixture_mode is True
 
 
+def test_anysearch_provider_reads_nested_data_results(monkeypatch):
+    import json
+
+    from app.models.schemas import SearchQuery
+    from app.providers.anysearch import AnySearchProvider
+
+    class FakeResponse:
+        headers = {"x-request-id": "req-test"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return json.dumps(
+                {
+                    "code": 0,
+                    "message": "success",
+                    "data": {
+                        "results": [
+                            {
+                                "title": "Cursor · Pricing",
+                                "url": "https://cursor.com/pricing",
+                                "snippet": "Pricing plans for Cursor.",
+                                "content": "Pricing plans for Cursor.",
+                            }
+                        ]
+                    },
+                }
+            ).encode("utf-8")
+
+    monkeypatch.setattr("app.providers.anysearch.urlopen", lambda *_args, **_kwargs: FakeResponse())
+
+    provider = AnySearchProvider(api_key="test-key", base_url="https://api.anysearch.com/v1/search")
+    results = provider.search(
+        "task_test",
+        SearchQuery(
+            query="Cursor pricing official",
+            product="Cursor",
+            expected_evidence="pricing",
+            source_preference="official_pricing_page",
+        ),
+    )
+
+    assert len(results) == 1
+    assert results[0]["title"] == "Cursor · Pricing"
+    assert results[0]["url"] == "https://cursor.com/pricing"
+    assert results[0]["summary"] == "Pricing plans for Cursor."
+
+
 def test_provider_factory_falls_back_to_mock_when_anysearch_key_missing():
     from app.providers.factory import ProviderSettings, build_provider_bundle
     from app.providers.mock_search import MockSearchProvider
@@ -46,13 +108,22 @@ def test_provider_factory_falls_back_to_mock_when_anysearch_key_missing():
         ProviderSettings(
             use_mock_search=False,
             use_mock_llm=True,
+            search_provider="anysearch",
             anysearch_api_key="",
             anysearch_base_url="https://api.anysearch.com/v1/search",
             anysearch_max_results=5,
             anysearch_content_types=(),
+            llm_provider="seed",
+            deepseek_api_key="",
+            deepseek_base_url="https://api.deepseek.com/chat/completions",
+            deepseek_model="deepseek-chat",
             seed_api_key="",
             seed_base_url="",
             seed_model="",
+            lightweight_llm_provider="seed",
+            lightweight_seed_api_key="test-key",
+            lightweight_seed_base_url="https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+            lightweight_seed_model="ep-test",
             allow_provider_fallback=True,
             allow_empty_search_fallback=True,
         )
@@ -61,6 +132,185 @@ def test_provider_factory_falls_back_to_mock_when_anysearch_key_missing():
     assert isinstance(bundle.search, MockSearchProvider)
     assert bundle.search_mode == "mock_fallback"
     assert bundle.warnings
+
+
+def test_provider_factory_selects_duckduckgo_and_deepseek_when_configured():
+    from app.providers.deepseek import DeepSeekLLMProvider
+    from app.providers.duckduckgo import DuckDuckGoSearchProvider
+    from app.providers.factory import ProviderSettings, build_provider_bundle
+
+    bundle = build_provider_bundle(
+        ProviderSettings(
+            use_mock_search=False,
+            use_mock_llm=False,
+            search_provider="duckduckgo",
+            anysearch_api_key="",
+            anysearch_base_url="https://api.anysearch.com/v1/search",
+            anysearch_max_results=5,
+            anysearch_content_types=(),
+            llm_provider="deepseek",
+            deepseek_api_key="test-key",
+            deepseek_base_url="https://api.deepseek.com/chat/completions",
+            deepseek_model="deepseek-4-flash",
+            seed_api_key="",
+            seed_base_url="",
+            seed_model="",
+            lightweight_llm_provider="seed",
+            lightweight_seed_api_key="test-key",
+            lightweight_seed_base_url="https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+            lightweight_seed_model="ep-test",
+            allow_provider_fallback=False,
+            allow_empty_search_fallback=False,
+        )
+    )
+
+    assert isinstance(bundle.search, DuckDuckGoSearchProvider)
+    assert isinstance(bundle.llm, DeepSeekLLMProvider)
+    assert bundle.search_mode == "duckduckgo"
+    assert bundle.llm_mode == "deepseek"
+    assert bundle.fixture_mode is False
+
+
+def test_source_normalizer_rejects_ambiguous_cursor_css_noise():
+    task = Task(
+        config=TaskConfig(
+            domain="ai_tools",
+            target_product="Cursor",
+            competitors=["GitHub Copilot"],
+            analysis_goals=["positioning"],
+        )
+    )
+    query = SearchQuery(
+        query="Anysphere Cursor AI code editor official positioning product page",
+        product="Cursor",
+        expected_evidence="positioning",
+        source_preference="official_homepage",
+    )
+    state = GraphState(
+        task=task,
+        search_plan=SearchPlan(task_id=task.task_id, queries=[query]),
+        raw_sources=[
+            {
+                "title": "cursor - CSS: Cascading Style Sheets | MDN",
+                "url": "https://developer.mozilla.org/en-US/docs/Web/CSS/cursor",
+                "source_type": "web_search",
+                "product": "Cursor",
+                "evidence_type": "positioning",
+                "summary": "The cursor CSS property sets the mouse cursor.",
+                "locator": "MDN",
+                "content": "The cursor CSS property sets the mouse cursor.",
+                "query": query.query,
+            },
+            {
+                "title": "Cursor — Build Software with AI Agents",
+                "url": "https://cursor.com/product",
+                "source_type": "web_search",
+                "product": "Cursor",
+                "evidence_type": "positioning",
+                "summary": "Cursor plans, writes, and reviews code using AI agents.",
+                "locator": "https://cursor.com/product",
+                "content": "Cursor plans, writes, and reviews code using AI agents.",
+                "query": query.query,
+            },
+        ],
+    )
+
+    normalized = source_normalizer_node(state)
+
+    assert len(normalized.sources) == 1
+    assert normalized.sources[0].url == "https://cursor.com/product"
+    assert normalized.sources[0].source_type == "official_homepage"
+    assert "rejected 1 irrelevant" in normalized.trace[-1].summary
+
+
+def test_writer_marks_report_reviewing_when_tickets_remain_open(monkeypatch):
+    monkeypatch.setenv("USE_MOCK_LLM", "true")
+    task = Task(
+        config=TaskConfig(
+            domain="ai_tools",
+            target_product="Cursor",
+            competitors=["GitHub Copilot"],
+            analysis_goals=["positioning"],
+        )
+    )
+    source = Source(
+        task_id=task.task_id,
+        title="Cursor — Build Software with AI Agents",
+        url="https://cursor.com/product",
+        source_type="official_homepage",
+        product="Cursor",
+        query="Cursor official positioning",
+        confidence="high",
+        content="Cursor plans, writes, and reviews code using AI agents.",
+    )
+    evidence = Evidence(
+        task_id=task.task_id,
+        source_id=source.source_id,
+        product="Cursor",
+        evidence_type="positioning",
+        summary="Cursor plans, writes, and reviews code using AI agents.",
+        quote_or_locator=source.url,
+        confidence="high",
+    )
+    claim = Claim(
+        task_id=task.task_id,
+        claim="Cursor plans, writes, and reviews code using AI agents.",
+        product="Cursor",
+        claim_type="positioning",
+        supporting_evidence=[evidence.evidence_id],
+        confidence="high",
+        verified_status="passed",
+        included_in_report=True,
+    )
+    ticket = ReviewTicket(
+        task_id=task.task_id,
+        reviewer="CriticAgent",
+        target_node="ResearchAgent",
+        reason="GitHub Copilot lacks pricing evidence.",
+        required_action="Collect pricing evidence.",
+        product="GitHub Copilot",
+        missing_evidence_type="pricing",
+    )
+    state = GraphState(task=task, sources=[source], evidence=[evidence], claims=[claim], review_tickets=[ticket])
+    state = trust_summary_node(state)
+    state = writer_node(state)
+
+    assert state.trust_summary.unresolved_ticket_count == 1
+    assert state.report.status == "reviewing"
+    assert "需人工复核" in state.report.markdown
+
+
+def test_reviewing_report_requires_draft_export(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.api import routes
+    from app.main import app
+    from app.storage.sqlite import SQLiteStore
+
+    store = SQLiteStore(str(tmp_path / "app.db"))
+    monkeypatch.setattr(routes, "store", store)
+    client = TestClient(app)
+    task = store.create_task(
+        Task(
+            config=TaskConfig(
+                domain="ai_tools",
+                target_product="Cursor",
+                competitors=["GitHub Copilot"],
+                analysis_goals=["positioning"],
+            )
+        )
+    )
+    result = run_workflow(task)
+    result.report.status = "reviewing"
+    store.save_result(result)
+
+    blocked_response = client.get(f"/api/v1/tasks/{task.task_id}/report/export?format=markdown")
+    draft_response = client.get(f"/api/v1/tasks/{task.task_id}/report/export?format=markdown&allow_draft=true")
+
+    assert blocked_response.status_code == 409
+    assert "reviewing" in blocked_response.json()["detail"]
+    assert draft_response.status_code == 200
+    assert "Draft export: report status is reviewing." in draft_response.json()["data"]["content"]
 
 
 def test_v1_create_task_returns_envelope_and_normalized_contract(tmp_path, monkeypatch):
@@ -442,6 +692,7 @@ def test_v1_run_stream_emits_trace_and_saves_result(tmp_path, monkeypatch):
 
     store = SQLiteStore(str(tmp_path / "app.db"))
     monkeypatch.setattr(routes, "store", store)
+    monkeypatch.setattr(routes, "_provider_status", lambda: {"workflow_ready": True, "issues": []})
     client = TestClient(app)
     task = store.create_task(
         Task(
@@ -872,3 +1123,33 @@ def test_workflow_report_contains_pm_scoring_sections_and_trace_metadata():
     assert provider_trace
     assert any(event.input_summary and event.output_summary for event in provider_trace)
     assert any(event.token_count is not None and event.latency_ms is not None for event in provider_trace)
+
+
+def test_competitor_recommendation_endpoint_returns_filtered_candidates(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.api import routes
+    from app.main import app
+    from app.providers.mock_llm import MockLLMProvider
+
+    monkeypatch.setattr(routes, "build_lightweight_llm_provider", lambda: (MockLLMProvider(), "mock"))
+
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/competitors/recommend",
+        json={
+            "target_product": "Cursor",
+            "domain": "ai_tools",
+            "existing_competitors": ["Windsurf"],
+            "audience": "产品团队",
+            "max_results": 5,
+        },
+    )
+
+    assert response.status_code == 200
+    competitors = response.json()["data"]["competitors"]
+    normalized = {item.casefold() for item in competitors}
+    assert competitors
+    assert "cursor" not in normalized
+    assert "windsurf" not in normalized

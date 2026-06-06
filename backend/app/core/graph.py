@@ -11,6 +11,7 @@ from app.core.nodes import (
     evidence_reviewer_node,
     finalize_node,
     planner_node,
+    interaction_node,
     research_node,
     source_normalizer_node,
     template_node,
@@ -21,6 +22,8 @@ from app.models.schemas import AgentTraceEvent, GraphState, Task, WorkflowResult
 
 
 def route_after_critic(state: GraphState) -> str:
+    if state.loop_count >= state.max_loops:
+        return "writer_node"
     if any(ticket.status == "open" and ticket.target_node == "ResearchAgent" for ticket in state.review_tickets):
         return "research_node"
     return "writer_node"
@@ -33,6 +36,7 @@ def build_graph():
     graph.add_node("research_node", research_node)
     graph.add_node("source_normalizer_node", source_normalizer_node)
     graph.add_node("evidence_extractor_node", evidence_extractor_node)
+    graph.add_node("interaction_node", interaction_node)
     graph.add_node("analyst_node", analyst_node)
     graph.add_node("critic_node", critic_node)
     graph.add_node("trust_summary_node", trust_summary_node)
@@ -45,7 +49,8 @@ def build_graph():
     graph.add_edge("template_node", "research_node")
     graph.add_edge("research_node", "source_normalizer_node")
     graph.add_edge("source_normalizer_node", "evidence_extractor_node")
-    graph.add_edge("evidence_extractor_node", "analyst_node")
+    graph.add_edge("evidence_extractor_node", "interaction_node")
+    graph.add_edge("interaction_node", "analyst_node")
     graph.add_edge("analyst_node", "critic_node")
     graph.add_conditional_edges("critic_node", route_after_critic, {"research_node": "research_node", "writer_node": "evidence_reviewer_node"})
     graph.add_edge("evidence_reviewer_node", "trust_summary_node")
@@ -60,7 +65,7 @@ compiled_graph = build_graph()
 
 def run_workflow(task: Task) -> WorkflowResult:
     initial = GraphState(task=task)
-    final_state = compiled_graph.invoke(initial)
+    final_state = compiled_graph.invoke(initial, config={"recursion_limit": 80})
     if isinstance(final_state, dict):
         final_state = GraphState.model_validate(final_state)
     return final_state.result()
@@ -71,7 +76,7 @@ def stream_workflow(task: Task) -> Iterator[dict]:
     seen_trace_events = 0
     final_state = initial
     yield {"event": "workflow_started", "data": {"task_id": task.task_id, "status": "running"}}
-    for state_update in compiled_graph.stream(initial, stream_mode="values"):
+    for state_update in compiled_graph.stream(initial, stream_mode="values", config={"recursion_limit": 80}):
         final_state = GraphState.model_validate(state_update)
         new_events = final_state.trace[seen_trace_events:]
         for trace_event in new_events:
@@ -109,9 +114,13 @@ def rerun_review_ticket(result: WorkflowResult, ticket_id: str) -> WorkflowResul
     )
     ticket = next(ticket for ticket in state.review_tickets if ticket.ticket_id == ticket_id)
     ticket.status = "open"
-    state = research_node(state)
-    state = source_normalizer_node(state)
-    state = evidence_extractor_node(state)
+    if ticket.target_node == "InteractionAgent":
+        state = interaction_node(state)
+    else:
+        state = research_node(state)
+        state = source_normalizer_node(state)
+        state = evidence_extractor_node(state)
+        state = interaction_node(state)
     state = analyst_node(state)
     state = evidence_reviewer_node(state)
     state = trust_summary_node(state)

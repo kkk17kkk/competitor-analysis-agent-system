@@ -32,11 +32,12 @@ TEMPLATES: dict[Domain, AnalysisTemplate] = {
         evidence_rules=[
             "AI 能力必须区分官方能力、用户反馈和推断",
             "Agent 能力需要文档、发布说明或产品页面支持",
+            "功能树必须优先绑定浏览器实测路径；仅有文档时只能标为推断",
             "定价必须优先使用官方定价页",
             "无 Evidence 的事实性 Claim 必须被降级或阻断",
         ],
-        claim_types=["positioning", "ai_capability", "agent_capability", "workflow", "context", "pricing", "risk"],
-        review_gates=["coverage", "agent_capability", "pricing_evidence", "evidence_binding"],
+        claim_types=["positioning", "ai_capability", "agent_capability", "browser_interaction", "workflow", "context", "pricing", "risk"],
+        review_gates=["coverage", "agent_capability", "browser_interaction", "pricing_evidence", "evidence_binding"],
     ),
 }
 

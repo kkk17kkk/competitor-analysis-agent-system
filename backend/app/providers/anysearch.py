@@ -57,8 +57,30 @@ class AnySearchProvider(SearchProvider):
         except json.JSONDecodeError as exc:
             raise ProviderRequestError("AnySearch returned invalid JSON.") from exc
 
-        items = body.get("results", body if isinstance(body, list) else [])
+        items = self._extract_items(body)
         return [self._normalize_item(item, query) for item in items if isinstance(item, dict)]
+
+    @staticmethod
+    def _extract_items(body: object) -> list[dict]:
+        if isinstance(body, list):
+            return [item for item in body if isinstance(item, dict)]
+        if not isinstance(body, dict):
+            return []
+
+        code = body.get("code")
+        if code not in (None, 0, "0"):
+            message = body.get("message") or body.get("error") or "Unknown AnySearch error."
+            raise ProviderRequestError(f"AnySearch request failed: {message}")
+
+        data = body.get("data")
+        if isinstance(data, dict):
+            results = data.get("results", [])
+            return [item for item in results if isinstance(item, dict)]
+        if isinstance(data, list):
+            return [item for item in data if isinstance(item, dict)]
+
+        results = body.get("results", [])
+        return [item for item in results if isinstance(item, dict)]
 
     @staticmethod
     def _normalize_item(item: dict, query: SearchQuery) -> dict:

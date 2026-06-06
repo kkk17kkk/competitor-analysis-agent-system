@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 import json
 import time
+from urllib.parse import urlparse
 
 from app.models.schemas import (
     AgentTraceEvent,
@@ -33,11 +34,83 @@ from app.templates.catalog import select_template
 
 
 CONFIDENCE_RANK = {"low": 1, "medium": 2, "high": 3}
+PRODUCT_AUTHORITY = {
+    "cursor": {
+        "aliases": ["cursor", "anysphere"],
+        "official_domains": ["cursor.com", "docs.cursor.com"],
+        "qualifiers": ["ai", "code", "coding", "editor", "agent", "developer", "anysphere", "mcp"],
+        "noise": ["css", "mouse cursor", "pointer", "mozilla", "mdn", "w3schools"],
+        "query_context": "Anysphere Cursor AI code editor",
+    },
+    "github copilot": {
+        "aliases": ["github copilot", "copilot"],
+        "official_domains": ["github.com", "docs.github.com"],
+        "qualifiers": ["ai", "code", "coding", "developer", "agent", "github", "copilot"],
+        "noise": ["pilot", "aircraft"],
+        "query_context": "GitHub Copilot AI coding assistant",
+    },
+    "windsurf": {
+        "aliases": ["windsurf", "codeium"],
+        "official_domains": ["windsurf.com", "codeium.com", "docs.windsurf.com"],
+        "qualifiers": ["ai", "code", "coding", "editor", "agent", "developer", "cascade", "codeium"],
+        "noise": ["sport", "sailing", "board", "weather", "kite", "water"],
+        "query_context": "Windsurf Codeium AI code editor",
+    },
+    "trae": {
+        "aliases": ["trae"],
+        "official_domains": ["trae.ai"],
+        "qualifiers": ["ai", "code", "coding", "agent", "developer", "ide"],
+        "noise": [],
+        "query_context": "TRAE AI coding agent IDE",
+    },
+}
 AUDIT_PROMPTS = {
     "claim_enrichment": "Given task context and bound evidence, return only evidence-bound enriched claims.",
     "review_ticket_suggestions": "Given coverage and claim statuses, return actionable review tickets for missing or risky evidence.",
     "report_enhancement": "Given included and uncertain claims, return concise executive summary, recommendations, and caveats.",
 }
+
+
+def _profile_for_product(product: str) -> dict:
+    key = product.casefold().strip()
+    return PRODUCT_AUTHORITY.get(key, {"aliases": [product.casefold()], "official_domains": [], "qualifiers": [], "noise": [], "query_context": product})
+
+
+def _query_product_name(product: str) -> str:
+    return str(_profile_for_product(product).get("query_context") or product)
+
+
+def _netloc(url: str) -> str:
+    return urlparse(url or "").netloc.casefold().removeprefix("www.")
+
+
+def _domain_matches(netloc: str, domains: list[str]) -> bool:
+    return any(netloc == domain or netloc.endswith(f".{domain}") for domain in domains)
+
+
+def _source_authority(raw: dict, query: SearchQuery) -> tuple[str, str, str]:
+    profile = _profile_for_product(query.product)
+    official_domains = [str(item).casefold() for item in profile.get("official_domains", [])]
+    aliases = [str(item).casefold() for item in profile.get("aliases", []) if str(item).strip()]
+    qualifiers = [str(item).casefold() for item in profile.get("qualifiers", []) if str(item).strip()]
+    noise = [str(item).casefold() for item in profile.get("noise", []) if str(item).strip()]
+    url = str(raw.get("url") or "")
+    domain = _netloc(url)
+    haystack = " ".join(
+        str(raw.get(key) or "")
+        for key in ("title", "summary", "content", "locator", "url")
+    ).casefold()
+    is_official = _domain_matches(domain, official_domains)
+    has_alias = any(alias in haystack for alias in aliases)
+    has_qualifier = not qualifiers or any(term in haystack for term in qualifiers)
+    has_noise = any(term in haystack for term in noise)
+
+    if is_official:
+        source_type = query.source_preference if query.source_preference.startswith("official") else "official_verified"
+        return source_type, "high", "Verified official product domain."
+    if has_alias and has_qualifier and not has_noise:
+        return "third_party_relevant", "medium", "Third-party source matched product alias and domain context."
+    return "irrelevant", "low", "Rejected by source relevance gate: source did not match product entity/domain context."
 
 
 def _trace(
@@ -86,6 +159,29 @@ def _estimate_tokens(*payloads: object) -> int:
     return max(1, len(text) // 4)
 
 
+def _provider_meta(response: object) -> dict:
+    if isinstance(response, dict):
+        meta = response.get("__provider_meta")
+        if isinstance(meta, dict):
+            return meta
+    return {}
+
+
+def _provider_request_id(response: object, provider_name: str) -> str:
+    if provider_name.startswith("Mock"):
+        return "fixture"
+    return str(_provider_meta(response).get("request_id") or "")
+
+
+def _provider_token_count(response: object, fallback: int) -> int:
+    usage = _provider_meta(response).get("usage")
+    if isinstance(usage, dict):
+        total = usage.get("total_tokens")
+        if isinstance(total, int):
+            return total
+    return fallback
+
+
 def planner_node(state: GraphState) -> GraphState:
     cfg = state.task.config
     state.brief = TaskBrief(
@@ -117,7 +213,8 @@ def template_node(state: GraphState) -> GraphState:
 def _query_for_ticket(state: GraphState, ticket: ReviewTicket) -> SearchQuery:
     product = ticket.product or ticket.reason.split(" lacks ", 1)[0]
     evidence_type = ticket.missing_evidence_type or "pricing"
-    source_hint = ticket.source_query_hint or f"{product} {evidence_type.replace('_', ' ')} official"
+    product_query = _query_product_name(product)
+    source_hint = ticket.source_query_hint or f"{product_query} {evidence_type.replace('_', ' ')} official"
     priority = ticket.severity if ticket.severity in {"high", "medium", "low"} else "high"
     return SearchQuery(
         query=source_hint,
@@ -142,9 +239,10 @@ def research_node(state: GraphState) -> GraphState:
     if not state.search_plan:
         queries: list[SearchQuery] = []
         for product in products:
+            product_query = _query_product_name(product)
             queries.append(
                 SearchQuery(
-                    query=f"{product} official positioning",
+                    query=f"{product_query} official homepage product overview",
                     product=product,
                     expected_evidence="positioning",
                     priority="high",
@@ -153,7 +251,7 @@ def research_node(state: GraphState) -> GraphState:
             )
             queries.append(
                 SearchQuery(
-                    query=f"{product} pricing official",
+                    query=f"{product_query} pricing official",
                     product=product,
                     expected_evidence="pricing",
                     priority="high",
@@ -162,7 +260,7 @@ def research_node(state: GraphState) -> GraphState:
             )
             queries.append(
                 SearchQuery(
-                    query=f"{product} official product features",
+                    query=f"{product_query} official product features docs",
                     product=product,
                     expected_evidence="feature",
                     priority="medium",
@@ -171,7 +269,7 @@ def research_node(state: GraphState) -> GraphState:
             )
             queries.append(
                 SearchQuery(
-                    query=f"{product} target users teams official",
+                    query=f"{product_query} target users teams official",
                     product=product,
                     expected_evidence="target_user",
                     priority="medium",
@@ -180,7 +278,7 @@ def research_node(state: GraphState) -> GraphState:
             )
             queries.append(
                 SearchQuery(
-                    query=f"{product} security privacy official",
+                    query=f"{product_query} security privacy official",
                     product=product,
                     expected_evidence="security",
                     priority="low",
@@ -190,7 +288,7 @@ def research_node(state: GraphState) -> GraphState:
             if cfg.domain == "ai_tools":
                 queries.append(
                     SearchQuery(
-                        query=f"{product} AI agent coding workflow docs",
+                        query=f"{product_query} AI agent coding workflow docs",
                         product=product,
                         expected_evidence="agent_capability",
                         priority="medium",
@@ -282,8 +380,20 @@ def _search_with_provider(state: GraphState, providers: ProviderBundle, query: S
     try:
         results = providers.search.search(state.task.task_id, query, supplement=supplement)
     except ProviderRequestError as exc:
-        if providers.search_mode.startswith("mock") or not providers.allow_provider_fallback:
+        if providers.search_mode.startswith("mock"):
             raise
+        if not providers.allow_provider_fallback:
+            _trace(
+                state,
+                "ProviderFactory",
+                "providers",
+                "provider_request_failed_without_fallback",
+                f"{providers.search.provider_name} failed and mock fallback is disabled. Continuing with zero results. Reason: {exc}",
+                input_payload=query.model_dump(mode="json"),
+                output_payload={"error": str(exc), "fallback": "disabled"},
+                provider=providers.search.provider_name,
+            )
+            return [], providers.search.provider_name, "; provider_error=no_fallback"
         fallback = MockSearchProvider()
         results = fallback.search(state.task.task_id, query, supplement=supplement)
         _trace(
@@ -319,28 +429,57 @@ def _search_with_provider(state: GraphState, providers: ProviderBundle, query: S
 def source_normalizer_node(state: GraphState) -> GraphState:
     existing_urls = {source.url for source in state.sources}
     fixture_mode = any(call.tool.startswith("Mock") for call in state.tool_calls)
-    source_risk = (
-        "Demo fixture; verify with live provider before production use."
-        if fixture_mode
-        else "Live provider evidence; verify freshness and source authority before external publication."
-    )
+    query_by_text = {query.query: query for query in state.search_plan.queries} if state.search_plan else {}
+    rejected = 0
+    rejected_sources: list[dict[str, str]] = []
     for raw in state.raw_sources:
         if raw["url"] in existing_urls:
             continue
+        query = query_by_text.get(raw.get("query", "")) or SearchQuery(
+            query=raw.get("query", ""),
+            product=raw.get("product", ""),
+            expected_evidence=raw.get("evidence_type", ""),
+            source_preference=raw.get("source_type", "web"),
+        )
+        source_type, confidence, authority_note = _source_authority(raw, query)
+        if source_type == "irrelevant":
+            rejected += 1
+            rejected_sources.append(
+                {
+                    "title": str(raw.get("title") or ""),
+                    "url": str(raw.get("url") or ""),
+                    "product": str(raw.get("product") or ""),
+                    "query": str(raw.get("query") or ""),
+                    "reason": authority_note,
+                }
+            )
+            continue
+        source_risk = (
+            "Demo fixture; verify with live provider before production use."
+            if fixture_mode
+            else authority_note
+        )
         state.sources.append(
             Source(
                 task_id=state.task.task_id,
                 title=raw["title"],
                 url=raw["url"],
-                source_type=raw["source_type"],
+                source_type=source_type,
                 product=raw["product"],
                 query=raw.get("query", ""),
-                confidence="high" if raw["source_type"].startswith("official") else "medium",
+                confidence=confidence,
                 risk=source_risk,
                 content=raw["content"],
             )
         )
-    _trace(state, "SourceNormalizer", "source_normalizer", "sources_normalized", f"Normalized {len(state.sources)} unique source(s).")
+    _trace(
+        state,
+        "SourceNormalizer",
+        "source_normalizer",
+        "sources_normalized",
+        f"Normalized {len(state.sources)} unique source(s); rejected {rejected} irrelevant search result(s).",
+        output_payload={"source_count": len(state.sources), "rejected_irrelevant_count": rejected, "rejected_sources": rejected_sources[:20]},
+    )
     return state
 
 
@@ -359,11 +498,108 @@ def evidence_extractor_node(state: GraphState) -> GraphState:
                 evidence_type=raw["evidence_type"],
                 summary=raw["summary"],
                 quote_or_locator=raw["locator"],
+                interaction_path=_interaction_steps(raw),
                 confidence=source.confidence,
                 risk=source.risk,
             )
         )
     _trace(state, "EvidenceExtractor", "evidence_extractor", "evidence_extracted", f"Extracted {len(state.evidence)} evidence item(s).")
+    return state
+
+
+def _interaction_steps(raw: dict | None) -> list[str]:
+    if not raw:
+        return []
+    value = raw.get("interaction_steps") or raw.get("interaction_path") or []
+    if isinstance(value, str):
+        return [item.strip() for item in value.replace("->", ">").split(">") if item.strip()]
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    return []
+
+
+def interaction_node(state: GraphState) -> GraphState:
+    if state.task.config.domain != "ai_tools":
+        _trace(state, "InteractionAgent", "interaction", "interaction_skipped", "Browser walkthrough evidence is required only for AI product analysis.")
+        return state
+
+    raw_by_url = {raw.get("url"): raw for raw in state.raw_sources}
+    existing_keys = {
+        (item.product.casefold(), item.evidence_type, " > ".join(item.interaction_path).casefold())
+        for item in state.evidence
+    }
+    created = 0
+    skipped_products: set[str] = set()
+
+    for source in list(state.sources):
+        raw = raw_by_url.get(source.url)
+        steps = _interaction_steps(raw)
+        if not steps:
+            skipped_products.add(source.product)
+            continue
+        key = (source.product.casefold(), "browser_interaction", " > ".join(steps).casefold())
+        if key in existing_keys:
+            continue
+        source_type = "official_browser_walkthrough" if source.source_type.startswith("official") else "browser_walkthrough"
+        walkthrough_source = Source(
+            task_id=state.task.task_id,
+            title=f"{source.product} browser walkthrough",
+            url=source.url,
+            source_type=source_type,
+            product=source.product,
+            query=f"browser walkthrough from {source.query}",
+            confidence=source.confidence,
+            risk=(
+                "Demo walkthrough fixture; replace with live Browser/Playwright click evidence before production use."
+                if "Demo fixture" in source.risk
+                else source.risk
+            ),
+            content="Clicked path: " + " > ".join(steps),
+        )
+        state.sources.append(walkthrough_source)
+        state.evidence.append(
+            Evidence(
+                task_id=state.task.task_id,
+                source_id=walkthrough_source.source_id,
+                product=source.product,
+                evidence_type="browser_interaction",
+                summary=str(raw.get("interaction_summary") or f"{source.product} workflow was observed through a click path: {' > '.join(steps)}."),
+                quote_or_locator=" > ".join(steps),
+                interaction_path=steps,
+                confidence=source.confidence,
+                risk=walkthrough_source.risk,
+            )
+        )
+        existing_keys.add(key)
+        created += 1
+
+    state.tool_calls.append(
+        ToolCall(
+            task_id=state.task.task_id,
+            agent="InteractionAgent",
+            tool="BrowserWalkthroughFixture",
+            operation="browser_walkthrough",
+            status="success" if created else "skipped",
+            results_summary=f"Created {created} browser interaction evidence item(s).",
+            input_summary="Read interaction_steps attached to official product sources.",
+            output_summary=f"{created} browser_interaction evidence item(s).",
+            provider_mode="fixture" if created else "",
+        )
+    )
+    _trace(
+        state,
+        "InteractionAgent",
+        "interaction",
+        "browser_walkthrough_completed" if created else "browser_walkthrough_missing",
+        (
+            f"Created {created} browser interaction evidence item(s) from explicit click-path observations."
+            if created
+            else "No explicit browser click-path observations were available; feature tree must mark interaction coverage as unverified."
+        ),
+        input_summary="InteractionAgent requires explicit click paths, not prose-only docs.",
+        output_summary=f"{created} browser_interaction evidence item(s); skipped products: {', '.join(sorted(skipped_products)) or '-'}",
+        output_payload={"created_count": created, "skipped_products": sorted(skipped_products)},
+    )
     return state
 
 
@@ -376,7 +612,10 @@ def analyst_node(state: GraphState) -> GraphState:
     products = [state.task.config.target_product, *state.task.config.competitors]
     for product in products:
         evidence_items = by_product.get(product, [])
-        for evidence_type in ["positioning", "pricing", "feature", "target_user", "security"]:
+        evidence_types = ["positioning", "pricing", "feature", "target_user", "security"]
+        if state.task.config.domain == "ai_tools":
+            evidence_types.insert(3, "browser_interaction")
+        for evidence_type in evidence_types:
             support = [item for item in evidence_items if item.evidence_type == evidence_type]
             if support:
                 primary_summary = support[0].summary.rstrip(".")
@@ -387,7 +626,7 @@ def analyst_node(state: GraphState) -> GraphState:
                         claim=f"{primary_summary}.",
                         claim_type=evidence_type,
                         supporting_evidence=[item.evidence_id for item in support],
-                        confidence="high",
+                        confidence="high" if evidence_type != "browser_interaction" else "medium",
                         verified_status="passed",
                         included_in_report=True,
                     )
@@ -427,6 +666,7 @@ def analyst_node(state: GraphState) -> GraphState:
     positioning_evidence = [item for item in state.evidence if item.evidence_type == "positioning"]
     pricing_evidence = [item for item in state.evidence if item.evidence_type == "pricing"]
     feature_evidence = [item for item in state.evidence if item.evidence_type == "feature"]
+    interaction_evidence = [item for item in state.evidence if item.evidence_type == "browser_interaction"]
     security_evidence = [item for item in state.evidence if item.evidence_type == "security"]
     if len(positioning_evidence) >= 2:
         compared = ", ".join(sorted({item.product for item in positioning_evidence})[:4])
@@ -450,6 +690,19 @@ def analyst_node(state: GraphState) -> GraphState:
                 claim="Feature coverage differs enough to require a feature-tree comparison instead of a flat checklist.",
                 claim_type="comparative_feature",
                 supporting_evidence=[item.evidence_id for item in feature_evidence],
+                confidence="medium",
+                verified_status="passed",
+                included_in_report=True,
+            )
+        )
+    if len(interaction_evidence) >= 2:
+        state.claims.append(
+            Claim(
+                task_id=state.task.task_id,
+                product="Cross-product",
+                claim="Browser-observed workflow paths are available for multiple products, so the feature tree can separate real interaction coverage from source-only feature claims.",
+                claim_type="comparative_browser_interaction",
+                supporting_evidence=[item.evidence_id for item in interaction_evidence],
                 confidence="medium",
                 verified_status="passed",
                 included_in_report=True,
@@ -540,10 +793,11 @@ def _enrich_claims_with_llm(state: GraphState) -> int:
         response = fallback.complete_structured("claim_enrichment", payload)
         latency_ms = int((time.perf_counter() - started) * 1000)
         provider_name = fallback.provider_name
-        summary = "Seed request failed; MockLLMProvider generated fallback claim enrichment."
+        summary = "LLM request failed; MockLLMProvider generated fallback claim enrichment."
 
     claims = _validated_enriched_claims(response, state)
-    token_count = _estimate_tokens(payload, response)
+    token_count = _provider_token_count(response, _estimate_tokens(payload, response))
+    provider_request_id = _provider_request_id(response, provider_name)
     if not claims:
         state.tool_calls.append(
             ToolCall(
@@ -558,6 +812,7 @@ def _enrich_claims_with_llm(state: GraphState) -> int:
                 output_summary="No valid evidence-bound enriched claims.",
                 token_count=token_count,
                 latency_ms=latency_ms,
+                provider_request_id=provider_request_id,
                 provider_mode=providers.llm_mode,
             )
         )
@@ -576,7 +831,7 @@ def _enrich_claims_with_llm(state: GraphState) -> int:
             token_count=token_count,
             latency_ms=latency_ms,
             provider=provider_name,
-            provider_request_id="fixture" if provider_name.startswith("Mock") else "",
+            provider_request_id=provider_request_id,
         )
         return 0
 
@@ -594,7 +849,7 @@ def _enrich_claims_with_llm(state: GraphState) -> int:
             output_summary=f"Added {len(claims)} valid evidence-bound claim(s).",
             token_count=token_count,
             latency_ms=latency_ms,
-            provider_request_id="fixture" if provider_name.startswith("Mock") else "",
+            provider_request_id=provider_request_id,
             provider_mode=providers.llm_mode,
         )
     )
@@ -614,7 +869,7 @@ def _enrich_claims_with_llm(state: GraphState) -> int:
         token_count=token_count,
         latency_ms=latency_ms,
         provider=provider_name,
-        provider_request_id="fixture" if provider_name.startswith("Mock") else "",
+        provider_request_id=provider_request_id,
     )
     return len(claims)
 
@@ -712,7 +967,7 @@ def critic_node(state: GraphState) -> GraphState:
                 input_summary="Coverage check for required evidence dimensions.",
                 output_summary=f"{created} ticket(s) created.",
                 input_payload={
-                    "required_evidence": ["pricing", "feature", "target_user", "security", "contradiction"],
+                    "required_evidence": ["pricing", "feature", "browser_interaction", "target_user", "security", "contradiction"],
                     "products": [state.task.config.target_product, *state.task.config.competitors],
                 },
                 output_payload={"created_ticket_count": created},
@@ -738,13 +993,24 @@ def _create_coverage_review_tickets(state: GraphState) -> int:
         for ticket in state.review_tickets
     }
     rules = [
-        ("pricing", "official_pricing_page", "high", "Search official pricing page, or keep pricing model uncertain."),
-        ("feature", "official_docs", "medium", "Search official feature/product documentation before finalizing the feature tree."),
-        ("target_user", "official_docs", "medium", "Search official team/persona/customer material before finalizing personas."),
-        ("security", "official_docs", "medium", "Search security or privacy documentation before scoring enterprise adoption risk."),
+        ("pricing", "official_pricing_page", "high", "Search official pricing page, or keep pricing model uncertain.", "ResearchAgent"),
+        ("feature", "official_docs", "medium", "Search official feature/product documentation before finalizing the feature tree.", "ResearchAgent"),
+        ("target_user", "official_docs", "medium", "Search official team/persona/customer material before finalizing personas.", "ResearchAgent"),
+        ("security", "official_docs", "medium", "Search security or privacy documentation before scoring enterprise adoption risk.", "ResearchAgent"),
     ]
+    if state.task.config.domain == "ai_tools":
+        rules.insert(
+            2,
+            (
+                "browser_interaction",
+                "browser_walkthrough",
+                "high",
+                "Use Browser or Playwright to click through the product UI and record a real interaction path before treating the feature tree as verified.",
+                "InteractionAgent",
+            ),
+        )
     created = 0
-    for evidence_type, source_type, severity, action in rules:
+    for evidence_type, source_type, severity, action, target_node in rules:
         for product in products:
             key = (product.casefold(), evidence_type)
             if key in existing or evidence_type in evidence_by_product.get(product, set()):
@@ -752,7 +1018,7 @@ def _create_coverage_review_tickets(state: GraphState) -> int:
             ticket = ReviewTicket(
                 task_id=state.task.task_id,
                 reviewer="CriticAgent",
-                target_node="ResearchAgent",
+                target_node=target_node,
                 reason=f"{product} lacks official {evidence_type.replace('_', ' ')} evidence.",
                 required_action=action,
                 severity=severity,
@@ -835,10 +1101,11 @@ def _suggest_review_tickets_with_llm(state: GraphState) -> int:
         response = fallback.complete_structured("review_ticket_suggestions", payload)
         latency_ms = int((time.perf_counter() - started) * 1000)
         provider_name = fallback.provider_name
-        summary = "Seed request failed; MockLLMProvider generated fallback review ticket suggestions."
+        summary = "LLM request failed; MockLLMProvider generated fallback review ticket suggestions."
 
     tickets = _validated_review_ticket_suggestions(response, state)
-    token_count = _estimate_tokens(payload, response)
+    token_count = _provider_token_count(response, _estimate_tokens(payload, response))
+    provider_request_id = _provider_request_id(response, provider_name)
     if not tickets:
         state.tool_calls.append(
             ToolCall(
@@ -853,7 +1120,7 @@ def _suggest_review_tickets_with_llm(state: GraphState) -> int:
                 output_summary="No valid review ticket suggestions.",
                 token_count=token_count,
                 latency_ms=latency_ms,
-                provider_request_id="fixture" if provider_name.startswith("Mock") else "",
+                provider_request_id=provider_request_id,
                 provider_mode=providers.llm_mode,
             )
         )
@@ -872,7 +1139,7 @@ def _suggest_review_tickets_with_llm(state: GraphState) -> int:
             token_count=token_count,
             latency_ms=latency_ms,
             provider=provider_name,
-            provider_request_id="fixture" if provider_name.startswith("Mock") else "",
+            provider_request_id=provider_request_id,
         )
         return 0
 
@@ -890,7 +1157,7 @@ def _suggest_review_tickets_with_llm(state: GraphState) -> int:
             output_summary=f"Added {len(tickets)} valid review ticket(s).",
             token_count=token_count,
             latency_ms=latency_ms,
-            provider_request_id="fixture" if provider_name.startswith("Mock") else "",
+            provider_request_id=provider_request_id,
             provider_mode=providers.llm_mode,
         )
     )
@@ -910,7 +1177,7 @@ def _suggest_review_tickets_with_llm(state: GraphState) -> int:
         token_count=token_count,
         latency_ms=latency_ms,
         provider=provider_name,
-        provider_request_id="fixture" if provider_name.startswith("Mock") else "",
+        provider_request_id=provider_request_id,
     )
     return len(tickets)
 
@@ -996,42 +1263,84 @@ def _build_feature_tree(state: GraphState) -> FeatureTree:
     children: list[FeatureTreeNode] = []
     for product in products:
         feature_evidence = [item for item in state.evidence if item.product == product and item.evidence_type == "feature" and item.status == "active"]
+        interaction_evidence = [item for item in state.evidence if item.product == product and item.evidence_type == "browser_interaction" and item.status == "active"]
         agent_evidence = [item for item in state.evidence if item.product == product and item.evidence_type == "agent_capability" and item.status == "active"]
         security_evidence = [item for item in state.evidence if item.product == product and item.evidence_type == "security" and item.status == "active"]
+        interaction_children = [
+            FeatureTreeNode(
+                name=_interaction_leaf_name(item),
+                description=item.summary,
+                evidence_ids=[item.evidence_id],
+                interaction_path=item.interaction_path,
+                verification_method="browser_walkthrough",
+            )
+            for item in interaction_evidence
+        ]
         product_children = [
             FeatureTreeNode(
-                name="Core product workflow",
+                name="Browser-tested workflow",
+                description=(
+                    "Observed click-path evidence is available; use these leaves as the verified function tree."
+                    if interaction_children
+                    else "No browser walkthrough evidence is available; this product's function tree is not interaction-verified."
+                ),
+                evidence_ids=[item.evidence_id for item in interaction_evidence],
+                verification_method="browser_walkthrough" if interaction_children else "unverified",
+                children=interaction_children,
+            ),
+            FeatureTreeNode(
+                name="Source-inferred product workflow",
                 description=(feature_evidence[0].summary if feature_evidence else "Feature coverage requires supplemental evidence."),
                 evidence_ids=[item.evidence_id for item in feature_evidence],
+                verification_method="source_inference" if feature_evidence else "unverified",
             ),
             FeatureTreeNode(
                 name="Agent / AI workflow",
                 description=(agent_evidence[0].summary if agent_evidence else "Agent capability is not explicitly covered by current evidence."),
                 evidence_ids=[item.evidence_id for item in agent_evidence],
+                verification_method="source_inference" if agent_evidence else "unverified",
             ),
             FeatureTreeNode(
                 name="Team / security readiness",
                 description=(security_evidence[0].summary if security_evidence else "Security readiness is an open adoption-risk check."),
                 evidence_ids=[item.evidence_id for item in security_evidence],
+                verification_method="source_inference" if security_evidence else "unverified",
             ),
         ]
         children.append(
             FeatureTreeNode(
                 name=product,
-                description=f"Evidence-backed capability tree for {product}.",
+                description=f"Capability tree for {product}; browser-tested leaves are separated from source-inferred leaves.",
+                verification_method="mixed",
                 children=product_children,
             )
         )
-    covered = len([node for product_node in children for node in product_node.children if node.evidence_ids])
-    total = sum(len(product_node.children) for product_node in children)
+    browser_verified_products = len(
+        [
+            product_node
+            for product_node in children
+            if product_node.children and product_node.children[0].verification_method == "browser_walkthrough"
+        ]
+    )
+    total = len(children)
     return FeatureTree(
         root=FeatureTreeNode(
             name=f"{state.task.config.target_product} competitive feature map",
-            description="FeatureTree groups product workflow, agent/AI workflow, and team readiness signals.",
+            description="FeatureTree separates browser-observed workflows from source-inferred product claims.",
+            verification_method="mixed",
             children=children,
         ),
-        coverage_note=f"{covered}/{total} feature-tree leaves have active evidence; uncovered leaves become review-ticket follow-up.",
+        coverage_note=(
+            f"{browser_verified_products}/{total} products have browser-observed workflow evidence; "
+            "source-inferred leaves are useful for research but are not treated as verified function paths."
+        ),
     )
+
+
+def _interaction_leaf_name(item: Evidence) -> str:
+    if item.interaction_path:
+        return " > ".join(item.interaction_path[-3:])
+    return item.quote_or_locator or "Observed workflow"
 
 
 def _build_pricing_model(state: GraphState) -> PricingModel:
@@ -1156,7 +1465,14 @@ def _build_swot(state: GraphState, included: list[Claim], uncertain: list[Claim]
 def _feature_tree_markdown(node: FeatureTreeNode, depth: int = 0) -> list[str]:
     prefix = "  " * depth + "- "
     evidence = f" Evidence: {', '.join(node.evidence_ids)}" if node.evidence_ids else ""
-    lines = [f"{prefix}**{node.name}**：{node.description}{evidence}"]
+    method = {
+        "browser_walkthrough": "实测",
+        "source_inference": "文档/搜索推断",
+        "unverified": "未实测",
+        "mixed": "混合",
+    }.get(node.verification_method, node.verification_method)
+    path = f" Path: {' > '.join(node.interaction_path)}" if node.interaction_path else ""
+    lines = [f"{prefix}**{node.name}** [{method}]：{node.description}{path}{evidence}"]
     for child in node.children:
         lines.extend(_feature_tree_markdown(child, depth + 1))
     return lines
@@ -1186,12 +1502,18 @@ def writer_node(state: GraphState) -> GraphState:
         "## 可信度摘要",
         f"- 证据绑定率：{trust.claim_evidence_binding_rate:.0%}",
         f"- 官方来源占比：{trust.official_source_ratio:.0%}",
+        f"- 浏览器实测证据：{trust.browser_interaction_count} 条（覆盖 {trust.browser_verified_product_count} / {trust.browser_verified_product_total} 个产品）",
         f"- 已通过结论：{trust.passed_claim_count} / {trust.total_claim_count}",
         f"- 不确定 / 阻断 / 降级结论：{trust.uncertain_claim_count} / {trust.blocked_claim_count} / {trust.downgraded_claim_count}",
         f"- 未解决 Review Ticket：{trust.unresolved_ticket_count}",
         f"- 运行模式：{trust.provider_mode_label}",
         f"- Search provider：{trust.search_mode}",
         f"- LLM provider：{trust.llm_mode}",
+        *(
+            ["- 状态提示：仍有未解决 Review Ticket，报告需人工复核后再外部发布。"]
+            if trust.unresolved_ticket_count
+            else []
+        ),
         "",
         "## 分析背景",
         f"- 目标产品：{state.task.config.target_product}",
@@ -1255,10 +1577,14 @@ def writer_node(state: GraphState) -> GraphState:
     lines.extend(["", "## Agent 协作记录", f"- Review Tickets: {len(state.review_tickets)}", f"- Trace Events: {len(state.trace)}"])
     markdown = "\n".join(lines)
     markdown = _enhance_report_with_llm(state, markdown, included, uncertain, trust)
+    report_status = "reviewing" if trust.unresolved_ticket_count else "passed"
+    if any(claim.verified_status == "blocked" for claim in state.claims):
+        report_status = "blocked"
     state.report = Report(
         task_id=state.task.task_id,
         title=f"{state.task.config.target_product} Competitor Analysis",
         markdown=markdown,
+        status=report_status,
         sections=_build_report_sections(markdown, state.claims),
         claim_count=len(state.claims),
         unsupported_claim_count=len([claim for claim in state.claims if claim.verified_status in {"blocked", "unsupported", "downgraded"}]),
@@ -1329,10 +1655,11 @@ def _enhance_report_with_llm(state: GraphState, markdown: str, included: list[Cl
         latency_ms = int((time.perf_counter() - started) * 1000)
         provider_name = fallback.provider_name
         status = "success"
-        summary = "Seed request failed; MockLLMProvider generated fallback report enhancement."
+        summary = "LLM request failed; MockLLMProvider generated fallback report enhancement."
 
     enhancement = _format_report_enhancement(response)
-    token_count = _estimate_tokens(payload, response)
+    token_count = _provider_token_count(response, _estimate_tokens(payload, response))
+    provider_request_id = _provider_request_id(response, provider_name)
     if not enhancement:
         state.tool_calls.append(
             ToolCall(
@@ -1347,7 +1674,7 @@ def _enhance_report_with_llm(state: GraphState, markdown: str, included: list[Cl
                 output_summary="No valid report enhancement sections.",
                 token_count=token_count,
                 latency_ms=latency_ms,
-                provider_request_id="fixture" if provider_name.startswith("Mock") else "",
+                provider_request_id=provider_request_id,
                 provider_mode=providers.llm_mode,
             )
         )
@@ -1366,7 +1693,7 @@ def _enhance_report_with_llm(state: GraphState, markdown: str, included: list[Cl
             token_count=token_count,
             latency_ms=latency_ms,
             provider=provider_name,
-            provider_request_id="fixture" if provider_name.startswith("Mock") else "",
+            provider_request_id=provider_request_id,
         )
         return markdown
 
@@ -1383,7 +1710,7 @@ def _enhance_report_with_llm(state: GraphState, markdown: str, included: list[Cl
             output_summary="Report enhancement sections appended.",
             token_count=token_count,
             latency_ms=latency_ms,
-            provider_request_id="fixture" if provider_name.startswith("Mock") else "",
+            provider_request_id=provider_request_id,
             provider_mode=providers.llm_mode,
         )
     )
@@ -1402,7 +1729,7 @@ def _enhance_report_with_llm(state: GraphState, markdown: str, included: list[Cl
         token_count=token_count,
         latency_ms=latency_ms,
         provider=provider_name,
-        provider_request_id="fixture" if provider_name.startswith("Mock") else "",
+        provider_request_id=provider_request_id,
     )
     return f"{markdown}\n\n{enhancement}"
 
@@ -1549,7 +1876,7 @@ def evidence_reviewer_node(state: GraphState) -> GraphState:
             claim.note = "Blocked by Evidence Consistency Reviewer because no supporting evidence is bound."
             blocked += 1
             continue
-        downgrade_reason = _strictness_downgrade_reason(state.task.config.evidence_strictness, supporting, source_by_id)
+        downgrade_reason = _semantic_downgrade_reason(claim, supporting, source_by_id) or _strictness_downgrade_reason(state.task.config.evidence_strictness, supporting, source_by_id)
         if downgrade_reason:
             claim.included_in_report = False
             claim.verified_status = "downgraded"
@@ -1563,6 +1890,37 @@ def evidence_reviewer_node(state: GraphState) -> GraphState:
         f"Blocked {blocked} unsupported claim(s) and downgraded {downgraded} claim(s) under {state.task.config.evidence_strictness} strictness.",
     )
     return state
+
+
+def _semantic_downgrade_reason(claim: Claim, evidence: list[Evidence], source_by_id: dict[str, Source]) -> str:
+    if claim.product not in {"Cross-product", "Risk", "Opportunity"}:
+        mismatched_product = [item.evidence_id for item in evidence if item.product != claim.product]
+        if mismatched_product and len(mismatched_product) == len(evidence):
+            return "Downgraded by semantic evidence gate because supporting evidence belongs to a different product entity."
+
+    comparable_types = {
+        "positioning",
+        "pricing",
+        "feature",
+        "browser_interaction",
+        "target_user",
+        "security",
+        "agent_capability",
+    }
+    if claim.claim_type in comparable_types:
+        mismatched_type = [item.evidence_id for item in evidence if item.evidence_type != claim.claim_type]
+        if mismatched_type and len(mismatched_type) == len(evidence):
+            return "Downgraded by semantic evidence gate because supporting evidence type does not match the claim type."
+
+    low_authority = []
+    for item in evidence:
+        source = source_by_id.get(item.source_id)
+        if source and source.source_type == "irrelevant":
+            low_authority.append(item.evidence_id)
+    if low_authority:
+        return "Downgraded by semantic evidence gate because supporting evidence failed source relevance validation."
+
+    return ""
 
 
 def _strictness_downgrade_reason(strictness: str, evidence: list[Evidence], source_by_id: dict[str, Source]) -> str:
@@ -1589,7 +1947,10 @@ def _build_trust_summary(state: GraphState) -> TrustSummary:
     total_claims = len(state.claims)
     bound_claims = len([claim for claim in state.claims if claim.supporting_evidence])
     official_sources = len([source for source in state.sources if source.source_type.startswith("official")])
-    unresolved_tickets = len([ticket for ticket in state.review_tickets if ticket.status == "open"])
+    products = [state.task.config.target_product, *state.task.config.competitors]
+    browser_interactions = [item for item in state.evidence if item.evidence_type == "browser_interaction" and item.status == "active"]
+    browser_verified_products = {item.product for item in browser_interactions}
+    unresolved_tickets = len([ticket for ticket in state.review_tickets if ticket.status in {"open", "accepted", "rerun_started"}])
     blocked_claims = len([claim for claim in state.claims if claim.verified_status == "blocked"])
     downgraded_claims = len([claim for claim in state.claims if claim.verified_status == "downgraded"])
     uncertain_claims = len([claim for claim in state.claims if claim.verified_status in {"uncertain", "unsupported", "contradicted"}])
@@ -1601,6 +1962,9 @@ def _build_trust_summary(state: GraphState) -> TrustSummary:
     return TrustSummary(
         claim_evidence_binding_rate=bound_claims / total_claims if total_claims else 0,
         official_source_ratio=official_sources / len(state.sources) if state.sources else 0,
+        browser_interaction_count=len(browser_interactions),
+        browser_verified_product_count=len(browser_verified_products),
+        browser_verified_product_total=len(products),
         blocked_claim_count=blocked_claims,
         uncertain_claim_count=uncertain_claims,
         downgraded_claim_count=downgraded_claims,
@@ -1628,5 +1992,5 @@ def trust_summary_node(state: GraphState) -> GraphState:
 
 def finalize_node(state: GraphState) -> GraphState:
     state.task.status = "completed"
-    _trace(state, "Workflow", "finalize", "workflow_completed", "Finalized no-key LangGraph demo result.")
+    _trace(state, "Workflow", "finalize", "workflow_completed", "Finalized provider-configured LangGraph workflow result.")
     return state

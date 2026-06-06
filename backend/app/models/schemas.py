@@ -21,6 +21,7 @@ ClaimStatus = Literal["passed", "uncertain", "blocked", "pending", "unsupported"
 TicketStatus = Literal["open", "accepted", "rerun_started", "resolved", "dismissed", "blocked"]
 EvidenceStatus = Literal["active", "excluded", "stale"]
 ReportStatus = Literal["draft", "reviewing", "blocked", "stale", "passed"]
+MAX_ANALYSIS_GOAL_WORDS = 1000
 
 
 class TaskConfig(BaseModel):
@@ -34,8 +35,77 @@ class TaskConfig(BaseModel):
     notes: str = ""
 
 
+class AnalysisGoalPolishRequest(BaseModel):
+    draft: str
+    domain: Domain = "ai_tools"
+    target_product: str = ""
+    competitors: list[str] = Field(default_factory=list)
+    audience: str = "product team"
+
+
+class AnalysisGoalPolishItem(BaseModel):
+    title: str
+    details: list[str] = Field(default_factory=list)
+
+
+class AnalysisGoalPolishResponse(BaseModel):
+    goals: list[str] = Field(default_factory=list)
+    items: list[AnalysisGoalPolishItem] = Field(default_factory=list)
+    formatted_text: str = ""
+    provider: str = ""
+    provider_request_id: str = ""
+
+
+class AnalysisGoalCondenseRequest(BaseModel):
+    draft: str
+    domain: Domain = "ai_tools"
+    target_product: str = ""
+    competitors: list[str] = Field(default_factory=list)
+    audience: str = "product team"
+    max_words: int = MAX_ANALYSIS_GOAL_WORDS
+
+
+class AnalysisGoalCondenseResponse(BaseModel):
+    condensed_text: str = ""
+    word_count: int = 0
+    provider: str = ""
+    provider_request_id: str = ""
+
+
+class CompetitorRecommendationRequest(BaseModel):
+    target_product: str
+    domain: Domain = "ai_tools"
+    existing_competitors: list[str] = Field(default_factory=list)
+    audience: str = "product team"
+    max_results: int = 5
+
+
+class CompetitorRecommendationResponse(BaseModel):
+    competitors: list[str] = Field(default_factory=list)
+    rationale: str = ""
+    provider: str = ""
+    provider_request_id: str = ""
+
+
 def _normalized_name(value: str) -> str:
     return " ".join(value.casefold().split())
+
+
+def count_goal_words(value: str) -> int:
+    text = str(value or "")
+    count = 0
+    in_ascii_word = False
+    for char in text:
+        if "\u4e00" <= char <= "\u9fff":
+            count += 1
+            in_ascii_word = False
+        elif char.isalnum():
+            if not in_ascii_word:
+                count += 1
+                in_ascii_word = True
+        else:
+            in_ascii_word = False
+    return count
 
 
 def validate_task_config_fields(config: Any) -> list[dict[str, str]]:
@@ -98,12 +168,12 @@ def validate_task_config_fields(config: Any) -> list[dict[str, str]]:
                 "code": "GOALS_REQUIRED",
             }
         )
-    elif len(goals) > 8:
+    elif count_goal_words("\n".join(goals)) > MAX_ANALYSIS_GOAL_WORDS:
         errors.append(
             {
                 "field": "analysis_goals",
-                "message": "MVP supports at most 8 analysis goals.",
-                "code": "TOO_MANY_GOALS",
+                "message": f"Analysis goals must be within {MAX_ANALYSIS_GOAL_WORDS} words.",
+                "code": "GOALS_TOO_LONG",
             }
         )
 
@@ -193,6 +263,7 @@ class Evidence(BaseModel):
     evidence_type: str
     summary: str
     quote_or_locator: str
+    interaction_path: list[str] = Field(default_factory=list)
     confidence: Literal["high", "medium", "low"] = "medium"
     risk: str = ""
     status: EvidenceStatus = "active"
@@ -260,6 +331,8 @@ class FeatureTreeNode(BaseModel):
     name: str
     description: str = ""
     evidence_ids: list[str] = Field(default_factory=list)
+    interaction_path: list[str] = Field(default_factory=list)
+    verification_method: str = "unverified"
     children: list["FeatureTreeNode"] = Field(default_factory=list)
 
 
@@ -333,6 +406,9 @@ class Report(BaseModel):
 class TrustSummary(BaseModel):
     claim_evidence_binding_rate: float = 0
     official_source_ratio: float = 0
+    browser_interaction_count: int = 0
+    browser_verified_product_count: int = 0
+    browser_verified_product_total: int = 0
     blocked_claim_count: int = 0
     uncertain_claim_count: int = 0
     downgraded_claim_count: int = 0

@@ -9,7 +9,24 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import ValidationError
 
 from app.core.graph import apply_review_ticket_claim_decision, rerun_review_ticket, run_workflow, stream_workflow
-from app.models.schemas import AgentTraceEvent, Task, TaskConfig, WorkflowResult, now_iso, validate_task_config_fields
+from app.models.schemas import (
+    AgentTraceEvent,
+    AnalysisGoalCondenseRequest,
+    AnalysisGoalCondenseResponse,
+    AnalysisGoalPolishItem,
+    AnalysisGoalPolishRequest,
+    AnalysisGoalPolishResponse,
+    CompetitorRecommendationRequest,
+    CompetitorRecommendationResponse,
+    Task,
+    TaskConfig,
+    WorkflowResult,
+    count_goal_words,
+    now_iso,
+    validate_task_config_fields,
+)
+from app.providers.errors import ProviderConfigurationError, ProviderRequestError
+from app.providers.factory import build_lightweight_llm_provider, build_provider_bundle, load_provider_settings
 from app.storage.sqlite import SQLiteStore
 
 
@@ -134,50 +151,178 @@ def _report_summary(report):
     }
 
 
+def _clean_goal(value: object) -> str:
+    text = " ".join(str(value or "").split())
+    return text.strip(" -\t")
+
+
+def _format_polished_goals(goals: list[str]) -> str:
+    return "\n".join(f"{index + 1}. {goal}" for index, goal in enumerate(goals))
+
+
+def _normalized_name(value: str) -> str:
+    return " ".join(str(value or "").casefold().split())
+
+
+def _polish_response_from_provider(response: dict, provider: str) -> AnalysisGoalPolishResponse:
+    raw_goals = response.get("goals") if isinstance(response.get("goals"), list) else []
+    raw_items = response.get("items") if isinstance(response.get("items"), list) else []
+    items: list[AnalysisGoalPolishItem] = []
+    goals: list[str] = []
+
+    for item in raw_items:
+        if not isinstance(item, dict):
+            continue
+        title = _clean_goal(item.get("title"))
+        details = [_clean_goal(detail) for detail in item.get("details", []) if _clean_goal(detail)]
+        if title:
+            items.append(AnalysisGoalPolishItem(title=title, details=details[:4]))
+
+    if items:
+        goals = [
+            f"{item.title}：{'；'.join(item.details)}" if item.details else item.title
+            for item in items
+        ]
+    else:
+        for goal in raw_goals:
+            cleaned = _clean_goal(goal)
+            if cleaned:
+                goals.append(cleaned)
+
+    if not goals:
+        goals = ["明确竞品定位差异", "梳理核心功能与工作流差异", "对比定价、目标用户和可落地机会"]
+        items = [
+            AnalysisGoalPolishItem(title="定位差异", details=["明确目标产品与竞品的核心卖点和适用场景"]),
+            AnalysisGoalPolishItem(title="功能工作流", details=["对比关键功能、AI 能力和用户完成任务的路径"]),
+            AnalysisGoalPolishItem(title="商业机会", details=["结合定价、目标用户和证据风险输出机会点"]),
+        ]
+
+    meta = response.get("__provider_meta") if isinstance(response.get("__provider_meta"), dict) else {}
+    return AnalysisGoalPolishResponse(
+        goals=goals[:8],
+        items=items[:8],
+        formatted_text=_format_polished_goals(goals[:8]),
+        provider=provider,
+        provider_request_id=str(meta.get("request_id") or ""),
+    )
+
+
+def _condense_response_from_provider(response: dict, payload: AnalysisGoalCondenseRequest, provider: str) -> AnalysisGoalCondenseResponse:
+    condensed = " ".join(str(response.get("condensed_text") or "").split())
+    if not condensed and isinstance(response.get("goals"), list):
+        condensed = "\n".join(str(goal).strip() for goal in response["goals"] if str(goal).strip())
+    if not condensed:
+        condensed = payload.draft.strip()
+    meta = response.get("__provider_meta") if isinstance(response.get("__provider_meta"), dict) else {}
+    return AnalysisGoalCondenseResponse(
+        condensed_text=condensed,
+        word_count=count_goal_words(condensed),
+        provider=provider,
+        provider_request_id=str(meta.get("request_id") or ""),
+    )
+
+
+def _competitor_recommendation_from_provider(response: dict, payload: CompetitorRecommendationRequest, provider: str) -> CompetitorRecommendationResponse:
+    raw_competitors = response.get("competitors") if isinstance(response.get("competitors"), list) else []
+    blocked = {_normalized_name(payload.target_product), *(_normalized_name(item) for item in payload.existing_competitors)}
+    competitors: list[str] = []
+    seen: set[str] = set()
+    max_results = min(max(payload.max_results, 1), 5)
+
+    for item in raw_competitors:
+        name = " ".join(str(item or "").split()).strip(" -\t")
+        key = _normalized_name(name)
+        if not name or key in blocked or key in seen:
+            continue
+        seen.add(key)
+        competitors.append(name)
+        if len(competitors) >= max_results:
+            break
+
+    meta = response.get("__provider_meta") if isinstance(response.get("__provider_meta"), dict) else {}
+    return CompetitorRecommendationResponse(
+        competitors=competitors,
+        rationale=str(response.get("rationale") or ""),
+        provider=provider,
+        provider_request_id=str(meta.get("request_id") or ""),
+    )
+
+
 def _sse_message(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
-DEMO_TASKS = [
-    {
-        "id": "ai_tools_cursor",
-        "name": "AI 工具增强 Demo",
-        "description": "Cursor vs GitHub Copilot vs Windsurf vs TRAE，包含 pricing evidence 补采回环。",
-        "config": TaskConfig(
-            domain="ai_tools",
-            target_product="Cursor",
-            competitors=["GitHub Copilot", "Windsurf", "TRAE"],
-            analysis_goals=["positioning", "ai_capability", "agent_capability", "developer_workflow", "pricing"],
-            depth="standard",
-            evidence_strictness="high",
-            audience="AI tool product team",
-        ),
-    },
-    {
-        "id": "generic_notion",
-        "name": "通用产品 Demo",
-        "description": "Notion vs Coda vs Airtable，展示通用模板与非 AI 工具 fallback。",
-        "config": TaskConfig(
-            domain="general_product",
-            target_product="Notion",
-            competitors=["Coda", "Airtable"],
-            analysis_goals=["positioning", "collaboration", "pricing", "target_users"],
-            depth="standard",
-            evidence_strictness="standard",
-            audience="product manager",
-        ),
-    },
-]
-
-
-@router.get("/demo-tasks")
-def demo_tasks():
-    return DEMO_TASKS
-
-
 @router.get("/tasks")
-def list_tasks():
-    return store.list_tasks()
+def list_tasks(include_fixture: bool = False):
+    tasks = store.list_tasks()
+    if include_fixture:
+        return tasks
+    return [
+        task
+        for task in tasks
+        if (result := store.get_result(task.task_id))
+        and result.trust_summary
+        and not result.trust_summary.fixture_mode
+    ]
+
+
+def _provider_status():
+    settings = load_provider_settings()
+    issues: list[str] = []
+    search_ready = not settings.use_mock_search
+    llm_ready = not settings.use_mock_llm
+    lightweight_llm_ready = True
+
+    if settings.use_mock_search:
+        issues.append("真实搜索未启用：USE_MOCK_SEARCH 必须为 false。")
+    elif settings.search_provider == "anysearch" and not settings.anysearch_api_key:
+        search_ready = False
+        issues.append("AnySearch 未配置：请设置 ANYSEARCH_API_KEY。")
+    elif settings.search_provider not in {"anysearch", "duckduckgo"}:
+        search_ready = False
+        issues.append(f"不支持的搜索 Provider：{settings.search_provider}。")
+
+    if settings.use_mock_llm:
+        issues.append("真实 LLM 未启用：USE_MOCK_LLM 必须为 false。")
+    elif settings.llm_provider == "deepseek" and not settings.deepseek_api_key:
+        llm_ready = False
+        issues.append("DeepSeek 未配置：请设置 DEEPSEEK_API_KEY。")
+    elif settings.llm_provider == "seed" and not (settings.seed_api_key and settings.seed_base_url and settings.seed_model):
+        llm_ready = False
+        issues.append("Seed LLM 未完整配置：请设置 SEED_API_KEY、SEED_BASE_URL 和 SEED_MODEL。")
+    elif settings.llm_provider not in {"deepseek", "seed"}:
+        llm_ready = False
+        issues.append(f"不支持的 LLM Provider：{settings.llm_provider}。")
+
+    if settings.lightweight_llm_provider == "seed" and not (
+        settings.lightweight_seed_api_key and settings.lightweight_seed_base_url and settings.lightweight_seed_model
+    ):
+        lightweight_llm_ready = False
+        issues.append("轻量 LLM 未完整配置：请设置 LIGHTWEIGHT_SEED_API_KEY、LIGHTWEIGHT_SEED_BASE_URL 和 LIGHTWEIGHT_SEED_MODEL。")
+    elif settings.lightweight_llm_provider == "deepseek" and not settings.deepseek_api_key:
+        lightweight_llm_ready = False
+        issues.append("轻量 LLM 使用 DeepSeek，但 DEEPSEEK_API_KEY 未配置。")
+    elif settings.lightweight_llm_provider not in {"deepseek", "seed", "mock"}:
+        lightweight_llm_ready = False
+        issues.append(f"不支持的轻量 LLM Provider：{settings.lightweight_llm_provider}。")
+
+    fallback_enabled = settings.allow_provider_fallback or settings.allow_empty_search_fallback
+    if fallback_enabled:
+        issues.append("真实业务流程禁止演示数据降级：请将 ALLOW_PROVIDER_FALLBACK 和 ALLOW_EMPTY_SEARCH_FALLBACK 都设为 false。")
+
+    return {
+        "workflow_ready": search_ready and llm_ready and not fallback_enabled,
+        "search": {"ready": search_ready, "provider": settings.search_provider},
+        "llm": {"ready": llm_ready, "provider": settings.llm_provider},
+        "lightweight_llm": {"ready": lightweight_llm_ready, "provider": settings.lightweight_llm_provider},
+        "fallback_enabled": fallback_enabled,
+        "issues": issues,
+    }
+
+
+@router.get("/v1/provider-status")
+def provider_status_v1():
+    return api_response(_provider_status())
 
 
 @router.post("/tasks")
@@ -188,6 +333,89 @@ def create_task(config: TaskConfig):
     task = Task(config=config)
     store.create_task(task)
     return task
+
+
+@router.post("/v1/analysis-goals/polish")
+def polish_analysis_goals(payload: AnalysisGoalPolishRequest):
+    draft = payload.draft.strip()
+    if not draft:
+        return problem_response(422, "Validation Error", "Draft analysis goal text is required.")
+    try:
+        llm, llm_mode = build_lightweight_llm_provider()
+        response = llm.complete_structured(
+            "analysis_goal_polish",
+            {
+                "draft": draft,
+                "domain": payload.domain,
+                "target_product": payload.target_product,
+                "competitors": payload.competitors,
+                "audience": payload.audience,
+                "requirements": [
+                    "Turn the draft into categorized competitor-analysis goals.",
+                    "Use concise polished wording.",
+                    "Return numbered-list-ready items.",
+                ],
+            },
+        )
+    except (ProviderConfigurationError, ProviderRequestError) as exc:
+        return problem_response(502, "Provider Error", str(exc))
+    return api_response(_polish_response_from_provider(response, llm.provider_name))
+
+
+@router.post("/v1/analysis-goals/condense")
+def condense_analysis_goals(payload: AnalysisGoalCondenseRequest):
+    draft = payload.draft.strip()
+    if not draft:
+        return problem_response(422, "Validation Error", "Draft analysis goal text is required.")
+    max_words = min(max(payload.max_words, 100), 1000)
+    try:
+        llm, llm_mode = build_lightweight_llm_provider()
+        response = llm.complete_structured(
+            "analysis_goal_condense",
+            {
+                "draft": draft,
+                "domain": payload.domain,
+                "target_product": payload.target_product,
+                "competitors": payload.competitors,
+                "audience": payload.audience,
+                "max_words": max_words,
+                "requirements": [
+                    "Preserve the user's intended comparison dimensions.",
+                    "Remove repetition and overly detailed implementation notes.",
+                    "Return a concise text that can be used directly as analysis_goals.",
+                ],
+            },
+        )
+    except (ProviderConfigurationError, ProviderRequestError) as exc:
+        return problem_response(502, "Provider Error", str(exc))
+    return api_response(_condense_response_from_provider(response, payload, llm.provider_name))
+
+
+@router.post("/v1/competitors/recommend")
+def recommend_competitors(payload: CompetitorRecommendationRequest):
+    target_product = payload.target_product.strip()
+    if not target_product:
+        return problem_response(422, "Validation Error", "Target product is required for competitor recommendation.")
+    try:
+        llm, llm_mode = build_lightweight_llm_provider()
+        response = llm.complete_structured(
+            "competitor_recommendation",
+            {
+                "target_product": target_product,
+                "domain": payload.domain,
+                "existing_competitors": payload.existing_competitors,
+                "audience": payload.audience,
+                "max_results": min(max(payload.max_results, 1), 5),
+                "requirements": [
+                    "Recommend products that a product analyst would reasonably compare with the target.",
+                    "Return only product names in competitors.",
+                    "Exclude duplicates, the target product, and existing competitors.",
+                ],
+            },
+        )
+    except (ProviderConfigurationError, ProviderRequestError) as exc:
+        return problem_response(502, "Provider Error", str(exc))
+    return api_response(_competitor_recommendation_from_provider(response, payload, llm.provider_name))
 
 
 @router.post("/v1/tasks", status_code=status.HTTP_201_CREATED)
@@ -249,6 +477,9 @@ def run_task(task_id: str):
     task = store.get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    provider_status = _provider_status()
+    if not provider_status["workflow_ready"]:
+        raise HTTPException(status_code=503, detail=provider_status["issues"])
     task.status = "running"
     result = run_workflow(task)
     store.save_result(result)
@@ -260,6 +491,9 @@ def stream_task_run_v1(task_id: str):
     task = store.get_task(task_id)
     if not task:
         return problem_response(404, "Not Found", "Task not found.")
+    provider_status = _provider_status()
+    if not provider_status["workflow_ready"]:
+        return problem_response(503, "Provider Not Ready", " ".join(provider_status["issues"]))
 
     def event_generator():
         task.status = "running"
@@ -545,7 +779,7 @@ def export_report_v1(task_id: str, format: str = "markdown", allow_draft: bool =
         return problem_response(404, "Not Found", "Task has no report.")
     if format != "markdown":
         return problem_response(422, "Validation Error", "MVP export only supports markdown.")
-    if result.report.status in {"stale", "blocked"} and not allow_draft:
+    if result.report.status in {"stale", "blocked", "reviewing"} and not allow_draft:
         return problem_response(
             409,
             "Conflict",
@@ -553,7 +787,7 @@ def export_report_v1(task_id: str, format: str = "markdown", allow_draft: bool =
         )
     warning = None
     content = result.report.markdown
-    if result.report.status in {"stale", "blocked"}:
+    if result.report.status in {"stale", "blocked", "reviewing"}:
         warning = f"Draft export: report status is {result.report.status}."
         content = f"> {warning}\n\n{content}"
     return api_response(

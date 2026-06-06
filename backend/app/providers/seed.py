@@ -4,6 +4,7 @@ import json
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from app.providers.deepseek import PURPOSE_SCHEMAS
 from app.providers.errors import ProviderConfigurationError, ProviderRequestError
 from app.providers.llm import LLMProvider
 
@@ -24,13 +25,20 @@ class SeedLLMProvider(LLMProvider):
         self.timeout_seconds = timeout_seconds
 
     def complete_structured(self, purpose: str, payload: dict) -> dict:
+        schema_instruction = PURPOSE_SCHEMAS.get(purpose, "Return strict JSON only.")
         request_body = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": f"Return strict JSON for {purpose}."},
+                {
+                    "role": "system",
+                    "content": (
+                        f"You are a structured-output assistant for {purpose}. "
+                        f"{schema_instruction} Return only valid JSON, without markdown fences."
+                    ),
+                },
                 {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
             ],
-            "response_format": {"type": "json_object"},
+            "temperature": 0.2,
         }
         request = Request(
             self.base_url,
@@ -44,9 +52,11 @@ class SeedLLMProvider(LLMProvider):
         )
         try:
             with urlopen(request, timeout=self.timeout_seconds) as response:
+                request_id = response.headers.get("x-request-id") or ""
                 body = json.loads(response.read().decode("utf-8"))
         except HTTPError as exc:
-            raise ProviderRequestError(f"Seed request failed with HTTP {exc.code}.") from exc
+            detail = exc.read().decode("utf-8", errors="ignore")[:500]
+            raise ProviderRequestError(f"Seed request failed with HTTP {exc.code}: {detail}") from exc
         except URLError as exc:
             raise ProviderRequestError(f"Seed request failed: {exc.reason}.") from exc
         except json.JSONDecodeError as exc:
@@ -56,10 +66,25 @@ class SeedLLMProvider(LLMProvider):
         if not content and body.get("choices"):
             content = body["choices"][0].get("message", {}).get("content")
         if isinstance(content, dict):
-            return content
-        if isinstance(content, str):
+            parsed = content
+        elif isinstance(content, str):
             try:
-                return json.loads(content)
+                parsed = json.loads(content)
             except json.JSONDecodeError as exc:
                 raise ProviderRequestError("Seed response content was not valid JSON.") from exc
-        return body
+        elif isinstance(body, dict):
+            parsed = body
+        else:
+            raise ProviderRequestError("Seed returned an unsupported response shape.")
+
+        if isinstance(parsed, dict):
+            parsed.setdefault(
+                "__provider_meta",
+                {
+                    "request_id": request_id or body.get("id", ""),
+                    "usage": body.get("usage", {}),
+                    "model": body.get("model", self.model),
+                },
+            )
+            return parsed
+        raise ProviderRequestError("Seed parsed content was not a JSON object.")

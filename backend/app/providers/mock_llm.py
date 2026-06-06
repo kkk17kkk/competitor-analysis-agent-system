@@ -45,4 +45,13 @@ class MockLLMProvider(LLMProvider):
                     "Mock LLM synthesis is deterministic and intended for no-key demo validation.",
                 ],
             }
+        if purpose == "competitor_recommendation":
+            return {
+                "competitors": ["GitHub Copilot", "Windsurf", "Codeium"],
+                "rationale": "Mock recommendations for local validation.",
+            }
+        if purpose == "analysis_goal_condense":
+            return {
+                "condensed_text": "1. 对比目标产品与竞品的定位、核心功能、开放性、安全合规和落地风险。\n2. 输出证据支撑的差异结论、机会点和后续验证建议。"
+            }
         return {"purpose": purpose, "mode": "mock", "payload_keys": sorted(payload.keys())}
