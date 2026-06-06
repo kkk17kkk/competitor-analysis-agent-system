@@ -116,6 +116,7 @@ const sourcePreferenceCopy = {
   official: "官方来源",
   official_docs: "官方文档",
   official_pricing_page: "官方定价页",
+  official_browser_walkthrough: "官方页面实测",
   browser_walkthrough: "浏览器实测",
   official_or_independent: "官方或独立来源",
   "official documentation and industry reports": "官方文档与行业报告",
