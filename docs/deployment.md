@@ -52,14 +52,19 @@ docker compose up --build
 
 ## API Key 与密钥文件
 
-当前首个 demo 使用 mock providers，不需要真实 API Key。
+演示模式可以使用 mock providers，不需要真实 API Key。真实分析模式需要配置搜索与 LLM Provider。
 
 后续接入真实 provider 时，在根目录 `.env` 中配置：
 
 ```env
 USE_MOCK_SEARCH=false
 USE_MOCK_LLM=false
+SEARCH_PROVIDER=duckduckgo
+LLM_PROVIDER=deepseek
 ANYSEARCH_API_KEY=
+DEEPSEEK_API_KEY=
+DEEPSEEK_BASE_URL=https://api.deepseek.com/chat/completions
+DEEPSEEK_MODEL=deepseek-chat
 SEED_API_KEY=
 SEED_BASE_URL=
 SEED_MODEL=
@@ -85,18 +90,18 @@ VITE_API_BASE=http://localhost:8000
 - `.agents/`
 - `.codex/`
 
-## 真实 Provider 状态
+## Provider 状态
 
-当前状态：
+当前已实现：
 
-- `MockSearchProvider`：已实现。
-- `MockLLMProvider`：已实现。
-- `SearchProvider` / `LLMProvider` 基础接口：已实现。
-- `AnySearchSkillProvider`：未实现。
-- `SeedLLMProvider`：未实现。
-- 根据 `.env` 自动选择 mock / real provider：未实现。
+- `MockSearchProvider` / `MockLLMProvider`：用于一键 Demo 的预跑场景。
+- `AnySearchProvider`：读取 `ANYSEARCH_API_KEY`、`ANYSEARCH_BASE_URL` 和 `ANYSEARCH_MAX_RESULTS`。
+- `DuckDuckGoSearchProvider`：可作为无搜索 API Key 的公开网页搜索路径。
+- `DeepSeekLLMProvider`：OpenAI-compatible Chat Completions。
+- `SeedLLMProvider`：可作为主 LLM 或轻量 LLM Provider。
+- Provider factory：根据 `.env` 或前端设置页保存的配置选择 Demo / live provider。
 
-因此现在填写 `ANYSEARCH_API_KEY` 或 `SEED_API_KEY` 不会自动启用真实服务。下一阶段需要实现 provider factory、真实 provider 和失败 fallback。
+本地 Demo 可在前端点击“一键运行 Demo”直接体验。需要使用真实 Provider 时，请配置搜索和 LLM Key，并关闭 `USE_MOCK_SEARCH`、`USE_MOCK_LLM`、`ALLOW_PROVIDER_FALLBACK` 和 `ALLOW_EMPTY_SEARCH_FALLBACK`。
 
 ## 服务器部署
 

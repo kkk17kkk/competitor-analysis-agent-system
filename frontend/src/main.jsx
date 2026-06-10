@@ -223,18 +223,21 @@ const goalValueCopy = {
 const goalValueReverseCopy = Object.fromEntries(Object.entries(goalValueCopy).map(([key, value]) => [value, key]));
 const emptyTaskForm = {
   domain: "ai_tools",
-  target_product: "飞书",
-  competitors: ["钉钉", "企业微信"],
+  target_product: "Cursor",
+  competitors: ["GitHub Copilot", "Windsurf", "TRAE"],
   competitorDraft: "",
-  goalsText: `分析飞书、钉钉、企业微信在 OpenCloud 接入方面的开放性，包括：
-(a) 能实现哪些功能，不能实现哪些功能
-(b) 对于新手小白的友好性，重点比较新手教学和上手引导`,
+  goalsText: `分析 Cursor 与 GitHub Copilot、Windsurf、TRAE 在以下维度的差异：
+1. 产品定位与目标用户
+2. AI Agent 工作流与代码理解能力
+3. 定价模式与团队采用门槛
+4. 安全、隐私和企业落地风险
+5. 可以形成的产品机会点`,
   depth: "standard",
   evidence_strictness: "high",
   audience: "产品团队",
   notes: "",
   socialListening: {
-    enabled: true,
+    enabled: false,
     manual_xhs_summary: "",
     manual_source_urls: "",
     platforms: {
@@ -256,6 +259,31 @@ const emptyTaskForm = {
 
 function createEmptyTaskForm() {
   return JSON.parse(JSON.stringify(emptyTaskForm));
+}
+
+function createDemoTaskForm() {
+  return {
+    ...createEmptyTaskForm(),
+    target_product: "Cursor",
+    competitors: ["GitHub Copilot", "Windsurf", "TRAE"],
+    goalsText: `生成一份可演示的 AI 编程工具竞品分析报告，重点比较：
+1. Cursor、GitHub Copilot、Windsurf、TRAE 的定位差异
+2. Agent 编程工作流、代码上下文和团队协作能力
+3. 定价、目标用户、安全与企业采用风险
+4. 对产品团队有用的机会点、风险和后续验证建议`,
+    notes: "本地 Demo 将使用 AI 编程工具场景，生成完整证据链、复核工单与最终报告。",
+    socialListening: {
+      ...createEmptyTaskForm().socialListening,
+      enabled: false,
+      platforms: {
+        ...createEmptyTaskForm().socialListening.platforms,
+        xiaohongshu: {
+          ...createEmptyTaskForm().socialListening.platforms.xiaohongshu,
+          enabled: false,
+        },
+      },
+    },
+  };
 }
 const emptySurveyForm = {
   product_name: "",
@@ -367,6 +395,16 @@ function App() {
     focusWorkspace();
   }
 
+  function applyDemoPreset() {
+    setTaskForm(createDemoTaskForm());
+    setActiveView("home");
+    setActiveTab("overview");
+    setError("");
+    setActionMessage("已填入课堂演示分析配置，可直接点击“一键运行 Demo”。");
+    setSidebarOpen(false);
+    focusWorkspace();
+  }
+
   function openSurveyPage() {
     setResult(null);
     setLiveTrace([]);
@@ -465,15 +503,15 @@ function App() {
     focusWorkspace();
   }
 
-  async function launchTask(options = {}) {
+  async function runAnalysis(form, options = {}) {
     const { skipXhsLoginCheck = false } = options;
-    if (!taskForm) return;
+    if (!form) return;
     const latestProviderStatus = await refreshProviderStatus();
     if (!latestProviderStatus?.workflow_ready) {
       setError(latestProviderStatus?.issues?.join(" ") || "真实 Provider 尚未就绪。");
       return;
     }
-    if (!skipXhsLoginCheck && taskNeedsXhsLogin(taskForm)) {
+    if (!skipXhsLoginCheck && taskNeedsXhsLogin(form)) {
       const status = await refreshXhsStatus();
       if (!status?.logged_in) {
         await openXhsLoginPage({ continueAfterLogin: true });
@@ -488,7 +526,7 @@ function App() {
     setStreamState(null);
     setActiveView("result");
     try {
-      const task = await createTaskV1(formToConfig(taskForm));
+      const task = await createTaskV1(formToConfig(form));
       const workflowResult = await streamTaskRun(task.task_id, {
         onTrace: (event) => setLiveTrace((current) => [...current, event]),
         onState: (state) => setStreamState(state),
@@ -501,6 +539,53 @@ function App() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function launchTask(options = {}) {
+    await runAnalysis(taskForm, options);
+  }
+
+  async function launchDemoAnalysis() {
+    const demoForm = createDemoTaskForm();
+    const previousSettings = { ...settingsForm };
+    setTaskForm(demoForm);
+    setSettingsError("");
+    setActionMessage("正在启用演示 Provider，并运行完整 Agent 工作流...");
+    try {
+      const demoSettings = {
+        ...settingsForm,
+        USE_MOCK_SEARCH: true,
+        USE_MOCK_LLM: true,
+        ALLOW_PROVIDER_FALLBACK: true,
+        ALLOW_EMPTY_SEARCH_FALLBACK: true,
+      };
+      setSettingsForm(demoSettings);
+      const savedSettings = await updateAppSettings(demoSettings);
+      if (savedSettings.provider_status) {
+        setProviderStatus(savedSettings.provider_status);
+      }
+      await runAnalysis(demoForm, { skipXhsLoginCheck: true });
+    } catch (err) {
+      setError(`演示模式启动失败：${err.message}`);
+      setLoading(false);
+    } finally {
+      const restoreSettings = {
+        ...previousSettings,
+        ANYSEARCH_API_KEY: "",
+        DEEPSEEK_API_KEY: "",
+        SEED_API_KEY: "",
+        LIGHTWEIGHT_SEED_API_KEY: "",
+      };
+      try {
+        const restored = await updateAppSettings(restoreSettings);
+        setSettingsForm(settingsFormFromPayload(restored));
+        if (restored.provider_status) {
+          setProviderStatus(restored.provider_status);
+        }
+      } catch (restoreError) {
+        setSettingsError(`Demo 已结束，但恢复 Provider 设置失败：${restoreError.message}`);
+      }
     }
   }
 
@@ -803,7 +888,7 @@ function App() {
   }
 
   return (
-    <main className="shell">
+    <main className="demo-shell">
       <a className="skip-link" href="#main-workspace">跳到主内容</a>
       <div className="mobile-bar">
         <div className="brand">
@@ -813,13 +898,14 @@ function App() {
             <span>竞品分析 Agent 协作系统</span>
           </div>
         </div>
-        <button type="button" className="mobile-menu-button" onClick={() => setSidebarOpen((current) => !current)} aria-expanded={sidebarOpen} aria-controls="sidebar-navigation">
+        <button type="button" className="mobile-menu-button" onClick={() => setSidebarOpen((current) => !current)} aria-expanded={sidebarOpen} aria-controls="analysis-input">
           <Menu size={19} />
-          {sidebarOpen ? "关闭导航" : "打开导航"}
+          {sidebarOpen ? "关闭输入" : "打开输入"}
         </button>
       </div>
-      {sidebarOpen && <button type="button" className="sidebar-backdrop" aria-label="关闭导航" onClick={() => setSidebarOpen(false)} />}
-      <aside id="sidebar-navigation" className={`sidebar ${sidebarOpen ? "open" : ""}`}>
+      {sidebarOpen && <button type="button" className="sidebar-backdrop" aria-label="关闭输入面板" onClick={() => setSidebarOpen(false)} />}
+
+      <aside id="analysis-input" className={`input-rail ${sidebarOpen ? "open" : ""}`}>
         <div className="brand desktop-brand">
           <div className="brand-mark"><GitBranch size={20} /></div>
           <div>
@@ -827,45 +913,52 @@ function App() {
             <span>竞品分析 Agent 协作系统</span>
           </div>
         </div>
+        <section className="demo-hero">
+          <p className="eyebrow">产品工作台</p>
+          <h1>竞品分析入口</h1>
+          <p>填写目标、竞品和分析重点，一键生成可追溯报告。</p>
+          <div className="demo-actions">
+            <button type="button" className="new-analysis-button" onClick={launchDemoAnalysis} disabled={loading}>
+              <Play size={16} fill="currentColor" />
+              {loading ? "Demo 运行中" : "一键运行 Demo"}
+            </button>
+            <button type="button" className="secondary-nav-button" onClick={applyDemoPreset} disabled={loading}>
+              <ClipboardList size={16} />
+              使用示例参数
+            </button>
+          </div>
+        </section>
 
-        <button type="button" className="new-analysis-button" onClick={openConfigPage}>
-          <Play size={16} />
-          新建真实分析
-        </button>
-        <button type="button" className="secondary-nav-button" onClick={openSurveyPage}>
-          <ClipboardList size={16} />
-          用户调研问卷
-        </button>
-        <button type="button" className="secondary-nav-button" onClick={openSettingsPage}>
-          <Settings size={16} />
-          系统设置
-        </button>
+        <TaskForm form={taskForm} setForm={setTaskForm} validationErrors={formValidationErrors} />
 
-        <RecentRunsPanel
-          tasks={recentTasks}
-          activeTaskId={result?.task?.task_id}
-          loading={recentLoading}
-          onRefresh={refreshRecentTasks}
-          onSelect={loadRecentTask}
-        />
-
-        <ProviderStatusPanel status={providerStatus} loading={providerLoading} onRefresh={refreshProviderStatus} />
+        <div className="input-runbar">
+          <button className="run-button" onClick={launchTask} disabled={loading || taskFormInvalid || !providerStatus?.workflow_ready} title={taskFormInvalid ? formValidationErrors.join(" ") : !providerStatus?.workflow_ready ? providerStatus?.issues?.join(" ") : "开始真实分析"}>
+            <Play size={17} fill="currentColor" />
+            {loading ? "正在运行..." : "运行真实分析"}
+          </button>
+          {!providerLoading && !providerStatus?.workflow_ready && (
+            <p className="field-warning">真实 Provider 未就绪；可先使用“一键运行 Demo”。</p>
+          )}
+          {error && <p className="error inline">{error}</p>}
+          {actionMessage && <p className="success">{actionMessage}</p>}
+        </div>
       </aside>
 
-      <section id="main-workspace" className={`workspace ${result ? "has-result" : ""}`} ref={workspaceRef} tabIndex="-1">
-        <header className="topbar">
+      <section id="main-workspace" className={`workspace main-stage ${result ? "has-result" : ""}`} ref={workspaceRef} tabIndex="-1">
+        <header className="stage-header">
           <div>
-            <p className="eyebrow">{result ? "分析结果工作台" : activeView === "settings" ? "系统设置" : activeView === "survey" ? "用户调研问卷生成" : activeView === "xhs-login" ? "小红书登录引导" : "V1.2.1 产品化闭环"}</p>
-            <h1>{result ? `${result.task.config.target_product} 竞品分析` : activeView === "settings" ? "管理 API Key、LLM Provider 和搜索 Provider。" : activeView === "survey" ? "生成可直接投放和复盘的用户调研问卷。" : activeView === "xhs-login" ? "扫码登录小红书后继续舆情采集。" : "以证据为核心的竞品分析系统，支持检索、结论复核与可信度追踪。"}</h1>
+            <p className="eyebrow">{activeView === "settings" ? "系统设置" : activeView === "survey" ? "问卷生成" : activeView === "xhs-login" ? "小红书登录" : result ? "分析结果" : "Demo 工作台"}</p>
+            <h2>{result ? `${result.task.config.target_product} 竞品分析报告` : activeView === "settings" ? "数据与模型 Provider" : activeView === "survey" ? "生成调研问卷" : activeView === "xhs-login" ? "扫码连接小红书" : "输入需求，生成报告"}</h2>
           </div>
-          <div className="status-pill">
-            <Activity size={16} />
-            {activeView === "settings" ? settingsSaving ? "保存中" : "设置" : activeView === "survey" ? surveyLoading ? "生成中" : "问卷" : activeView === "xhs-login" ? xhsStatus?.logged_in ? "已登录" : "待登录" : activeView === "config" ? "配置中" : result ? "已完成" : loading ? "运行中" : "就绪"}
+          <div className="stage-tools">
+            <button type="button" onClick={() => setActiveView("home")} className={activeView === "home" ? "active" : ""}>工作台</button>
+            <button type="button" onClick={openSurveyPage}>问卷</button>
+            <button type="button" onClick={openSettingsPage}>设置</button>
           </div>
         </header>
 
         {loading && (
-          <>
+          <section className="running-band">
             <div className="metric-grid">
               {metrics.map(([label, value]) => (
                 <div className="metric" key={label}>
@@ -875,7 +968,7 @@ function App() {
               ))}
             </div>
             <WorkflowStepper trace={result?.trace || liveTrace} running={loading} />
-          </>
+          </section>
         )}
 
         {activeView === "settings" ? (
@@ -931,23 +1024,9 @@ function App() {
             onBack={openConfigPage}
             onContinue={launchTask}
           />
-        ) : activeView === "config" ? (
-          <ConfigView
-            form={taskForm}
-            setForm={setTaskForm}
-            loading={loading}
-            invalid={taskFormInvalid}
-            validationErrors={formValidationErrors}
-            error={error}
-            onRun={launchTask}
-            providerStatus={providerStatus}
-            providerLoading={providerLoading}
-            onReset={() => setTaskForm(createEmptyTaskForm())}
-          />
         ) : result ? (
           <>
             {liveTrace.length > 0 && <StreamSummary liveTrace={liveTrace} streamState={streamState} />}
-            {actionMessage && <p className="success">{actionMessage}</p>}
             <nav className="tabs" role="tablist" aria-label="分析结果视图">
               {[
                 ["overview", "概览", LayoutDashboard],
@@ -973,9 +1052,26 @@ function App() {
             {activeTab === "report" && <ReportView result={result} />}
           </>
         ) : (
-          <EmptyState loading={loading} liveTrace={liveTrace} streamState={streamState} onConfigure={openConfigPage} providerStatus={providerStatus} />
+          <DemoEmptyState loading={loading} liveTrace={liveTrace} streamState={streamState} onDemo={launchDemoAnalysis} onSettings={openSettingsPage} providerStatus={providerStatus} />
         )}
       </section>
+
+      <aside className="inspector-rail">
+        <RunInspector
+          result={result}
+          liveTrace={liveTrace}
+          streamState={streamState}
+          loading={loading}
+          providerStatus={providerStatus}
+          providerLoading={providerLoading}
+          onRefreshProvider={refreshProviderStatus}
+          recentTasks={recentTasks}
+          recentLoading={recentLoading}
+          activeTaskId={result?.task?.task_id}
+          onRefreshRecent={refreshRecentTasks}
+          onSelectRecent={loadRecentTask}
+        />
+      </aside>
     </main>
   );
 }
@@ -2370,6 +2466,144 @@ function EmptyState({ loading, liveTrace = [], streamState = null, onConfigure, 
         </button>
       )}
     </section>
+  );
+}
+
+function DemoEmptyState({ loading, liveTrace = [], streamState = null, onDemo, onSettings, providerStatus }) {
+  if (loading && liveTrace.length) {
+    return <LiveTracePanel liveTrace={liveTrace} streamState={streamState} />;
+  }
+  return (
+    <section className="demo-empty">
+      <div className="demo-empty-copy">
+        <p className="eyebrow">Demo 入口</p>
+        <h2>一键生成竞品分析报告</h2>
+        <p>本地 API 已准备 AI 编程工具场景，可直接生成检索计划、证据链、复核工单和最终报告。</p>
+        <div className="overview-actions">
+          <button type="button" className="primary-action" onClick={onDemo} disabled={loading}>
+            <Play size={16} fill="currentColor" />
+            {loading ? "正在运行 Demo" : "一键运行 Demo"}
+          </button>
+          <button type="button" onClick={onSettings}>
+            <Settings size={16} />
+            Provider 设置
+          </button>
+        </div>
+        {!providerStatus?.workflow_ready && (
+          <p className="empty-warning">Provider 尚未完全就绪，仍可先运行本地 Demo。</p>
+        )}
+      </div>
+      <div className="demo-flow">
+        {["输入需求", "检索来源", "抽取证据", "生成结论", "复核工单", "输出报告"].map((item, index) => (
+          <div key={item}>
+            <span>{String(index + 1).padStart(2, "0")}</span>
+            <strong>{item}</strong>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RunInspector({
+  result,
+  liveTrace,
+  streamState,
+  loading,
+  providerStatus,
+  providerLoading,
+  onRefreshProvider,
+  recentTasks,
+  recentLoading,
+  activeTaskId,
+  onRefreshRecent,
+  onSelectRecent,
+}) {
+  const trace = result?.trace?.length ? result.trace : liveTrace;
+  const latestTrace = trace.slice(-8).reverse();
+  const openTickets = result?.review_tickets?.filter((ticket) => !["resolved", "dismissed"].includes(ticket.status)) || [];
+  return (
+    <div className="inspector-stack">
+      <section className="inspector-panel">
+        <div className="panel-heading split">
+          <span><Activity size={16} />运行状态</span>
+          <span className={`badge ${loading ? "pending" : result ? "passed" : "draft"}`}>{loading ? "运行中" : result ? "已完成" : "待运行"}</span>
+        </div>
+        {streamState ? (
+          <div className="inspector-metrics">
+            <div><span>来源</span><strong>{streamState.source_count}</strong></div>
+            <div><span>证据</span><strong>{streamState.evidence_count}</strong></div>
+            <div><span>结论</span><strong>{streamState.claim_count}</strong></div>
+            <div><span>工单</span><strong>{streamState.ticket_count}</strong></div>
+          </div>
+        ) : result ? (
+          <div className="inspector-metrics">
+            <div><span>来源</span><strong>{result.sources.length}</strong></div>
+            <div><span>证据</span><strong>{result.evidence.length}</strong></div>
+            <div><span>结论</span><strong>{result.claims.length}</strong></div>
+            <div><span>工单</span><strong>{result.review_tickets.length}</strong></div>
+          </div>
+        ) : (
+          <p className="note">点击左侧 Demo 或真实分析后，这里会显示运行进度。</p>
+        )}
+      </section>
+
+      {result?.trust_summary && (
+        <section className="inspector-panel">
+          <div className="panel-heading">
+            <ShieldCheck size={16} />
+            <span>可信度</span>
+          </div>
+          <dl className="inspector-list">
+            <div><dt>证据绑定率</dt><dd>{percent(result.trust_summary.claim_evidence_binding_rate)}</dd></div>
+            <div><dt>官方来源占比</dt><dd>{percent(result.trust_summary.official_source_ratio)}</dd></div>
+            <div><dt>未解决工单</dt><dd>{result.trust_summary.unresolved_ticket_count}</dd></div>
+            <div><dt>数据模式</dt><dd>{formatProviderMode(result.trust_summary)}</dd></div>
+          </dl>
+        </section>
+      )}
+
+      <section className="inspector-panel">
+        <div className="panel-heading">
+          <GitBranch size={16} />
+          <span>Agent 协作 Trace</span>
+        </div>
+        {latestTrace.length ? (
+          <div className="mini-trace">
+            {latestTrace.map((event) => (
+              <article key={event.event_id}>
+                <strong>{translateNodeName(event.agent)}</strong>
+                <span>{translateEventType(event.event_type)}</span>
+                <p>{translateStructuredText(event.summary)}</p>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="note">尚未产生追踪事件。</p>
+        )}
+      </section>
+
+      {openTickets.length > 0 && (
+        <section className="inspector-panel">
+          <div className="panel-heading">
+            <ClipboardList size={16} />
+            <span>待复核</span>
+          </div>
+          <div className="mini-ticket-list">
+            {openTickets.slice(0, 4).map((ticket) => (
+              <article key={ticket.ticket_id}>
+                <span className={`badge ${ticket.status}`}>{statusCopy[ticket.status] || ticket.status}</span>
+                <strong>{ticket.product || "未指定产品"}</strong>
+                <p>{translateTicketText(ticket.reason)}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <ProviderStatusPanel status={providerStatus} loading={providerLoading} onRefresh={onRefreshProvider} />
+      <RecentRunsPanel tasks={recentTasks} activeTaskId={activeTaskId} loading={recentLoading} onRefresh={onRefreshRecent} onSelect={onSelectRecent} />
+    </div>
   );
 }
 
