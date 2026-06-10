@@ -5,8 +5,21 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - USE_MOCK_SEARCH=true
-      - USE_MOCK_LLM=true
+      - USE_MOCK_SEARCH=false
+      - USE_MOCK_LLM=false
+      - SEARCH_PROVIDER=anysearch
+      - ANYSEARCH_API_KEY=${ANYSEARCH_API_KEY}
+      - ANYSEARCH_BASE_URL=${ANYSEARCH_BASE_URL:-https://api.anysearch.com/v1/search}
+      - LLM_PROVIDER=deepseek
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com/chat/completions}
+      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-4-flash}
+      - LIGHTWEIGHT_LLM_PROVIDER=${LIGHTWEIGHT_LLM_PROVIDER:-seed}
+      - LIGHTWEIGHT_SEED_API_KEY=${LIGHTWEIGHT_SEED_API_KEY}
+      - LIGHTWEIGHT_SEED_BASE_URL=${LIGHTWEIGHT_SEED_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3/chat/completions}
+      - LIGHTWEIGHT_SEED_MODEL=${LIGHTWEIGHT_SEED_MODEL}
+      - ALLOW_PROVIDER_FALLBACK=false
+      - ALLOW_EMPTY_SEARCH_FALLBACK=false
       - DATABASE_URL=sqlite:///./data/app.db
     volumes:
       - backend-data:/app/data
