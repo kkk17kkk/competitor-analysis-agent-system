@@ -10,7 +10,7 @@ EvidenceGraph 面向产品经理、增长团队和竞品研究场景。用户输
 ![LangGraph](https://img.shields.io/badge/LangGraph-Agent%20Workflow-5F7DF2?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-111111?style=flat-square)
 
-[🚀 打开 Demo 工作台](http://localhost:5173) · [🖥️ 工作台整页截图](output/playwright/redesigned-home-full.png) · [📄 Demo 报告截图](output/playwright/demo-final-report.png) · [🧾 证据与结论截图](output/playwright/demo-evidence-claims.png) · [🧭 架构说明](docs/architecture.md)
+[🚀 打开 Demo 工作台](http://localhost:5173) · [🧭 架构说明](docs/architecture.md)
 
 ---
 
@@ -234,8 +234,3 @@ cd backend
 python -m pytest tests -q
 ```
 
----
-
-## 📄 License
-
-MIT License
