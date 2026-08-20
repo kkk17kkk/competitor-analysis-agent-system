@@ -10,9 +10,9 @@ EvidenceGraph 面向产品经理、增长团队和竞品研究场景。用户输
 ![LangGraph](https://img.shields.io/badge/LangGraph-Agent%20Workflow-5F7DF2?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-111111?style=flat-square)
 
-[🚀 打开本地 Demo 工作台](http://localhost:5173)
+[🚀 在线体验 Demo](https://competitor-analysis-agent-system-two.vercel.app) · [本地运行](http://localhost:5173)
 
-> 当前仓库提供本地运行与部署配置，尚未发布由本仓库维护的公网 Demo。Mock 模式用于无密钥演示；真实分析需配置搜索与 DeepSeek Provider。
+> 在线版本部署于 Vercel，并与 GitHub `main` 自动同步。它固定运行 Mock 演示，不需要访问者提供模型 Key；真实分析需在本地或私有部署中配置搜索与 DeepSeek Provider。
 
 公开展示部署请在服务端设置 `PUBLIC_DEMO_MODE=true`。该模式固定使用 Mock Provider，不读取模型 Key、不依赖跨请求保存的 SQLite 设置，并禁止通过设置接口修改 Provider 配置。
 
@@ -33,7 +33,7 @@ EvidenceGraph 面向产品经理、增长团队和竞品研究场景。用户输
 
 ## 🖥️ Demo 展示
 
-本地启动后点击 README 顶部的 [🚀 打开 Demo 工作台](http://localhost:5173)，再点击页面左侧 **一键运行 Demo**，即可生成 AI 编程工具竞品分析报告。
+打开 [🚀 在线 Demo](https://competitor-analysis-agent-system-two.vercel.app)，点击页面左侧 **一键运行 Demo**，即可生成 AI 编程工具竞品分析报告；本地开发时也可以使用 `http://localhost:5173`。
 
 Demo 场景：
 
