@@ -40,6 +40,7 @@ class ProviderSettings:
     lightweight_seed_model: str
     allow_provider_fallback: bool
     allow_empty_search_fallback: bool
+    public_demo_mode: bool = False
 
 
 @dataclass(frozen=True)
@@ -57,9 +58,10 @@ class ProviderBundle:
 def load_provider_settings() -> ProviderSettings:
     _load_env_files()
     stored = _stored_provider_settings()
+    public_demo_mode = _env_bool("PUBLIC_DEMO_MODE", False)
     return ProviderSettings(
-        use_mock_search=_bool_setting(stored, "USE_MOCK_SEARCH", False),
-        use_mock_llm=_bool_setting(stored, "USE_MOCK_LLM", False),
+        use_mock_search=public_demo_mode or _bool_setting(stored, "USE_MOCK_SEARCH", False),
+        use_mock_llm=public_demo_mode or _bool_setting(stored, "USE_MOCK_LLM", False),
         search_provider=_setting(stored, "SEARCH_PROVIDER", "anysearch").strip().lower(),
         anysearch_api_key=_setting(stored, "ANYSEARCH_API_KEY", ""),
         anysearch_base_url=_setting(stored, "ANYSEARCH_BASE_URL", "https://api.anysearch.com/v1/search"),
@@ -76,14 +78,26 @@ def load_provider_settings() -> ProviderSettings:
         lightweight_seed_api_key="",
         lightweight_seed_base_url="",
         lightweight_seed_model="",
-        allow_provider_fallback=_bool_setting(stored, "ALLOW_PROVIDER_FALLBACK", False),
-        allow_empty_search_fallback=_bool_setting(stored, "ALLOW_EMPTY_SEARCH_FALLBACK", False),
+        allow_provider_fallback=False if public_demo_mode else _bool_setting(stored, "ALLOW_PROVIDER_FALLBACK", False),
+        allow_empty_search_fallback=False if public_demo_mode else _bool_setting(stored, "ALLOW_EMPTY_SEARCH_FALLBACK", False),
+        public_demo_mode=public_demo_mode,
     )
 
 
 def build_provider_bundle(settings: ProviderSettings | None = None) -> ProviderBundle:
     cfg = settings or load_provider_settings()
     warnings: list[str] = []
+
+    if cfg.public_demo_mode:
+        return ProviderBundle(
+            search=MockSearchProvider(),
+            llm=MockLLMProvider(),
+            fixture_mode=True,
+            search_mode="mock_public_demo",
+            llm_mode="mock_public_demo",
+            allow_provider_fallback=False,
+            allow_empty_search_fallback=False,
+        )
 
     if cfg.use_mock_search:
         search: SearchProvider = MockSearchProvider()
@@ -152,6 +166,8 @@ def build_provider_bundle(settings: ProviderSettings | None = None) -> ProviderB
 
 def build_lightweight_llm_provider(settings: ProviderSettings | None = None) -> tuple[LLMProvider, str]:
     cfg = settings or load_provider_settings()
+    if cfg.public_demo_mode:
+        return MockLLMProvider(), "mock_public_demo"
     provider = cfg.lightweight_llm_provider
     if provider == "seed":
         return (

@@ -10,9 +10,11 @@ EvidenceGraph 面向产品经理、增长团队和竞品研究场景。用户输
 ![LangGraph](https://img.shields.io/badge/LangGraph-Agent%20Workflow-5F7DF2?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-111111?style=flat-square)
 
-[🚀 打开 Demo 工作台](http://localhost:5173) · [🧭 架构说明](docs/architecture.md)
+[🚀 打开本地 Demo 工作台](http://localhost:5173)
 
 > 当前仓库提供本地运行与部署配置，尚未发布由本仓库维护的公网 Demo。Mock 模式用于无密钥演示；真实分析需配置搜索与 DeepSeek Provider。
+
+公开展示部署请在服务端设置 `PUBLIC_DEMO_MODE=true`。该模式固定使用 Mock Provider，不读取模型 Key、不依赖跨请求保存的 SQLite 设置，并禁止通过设置接口修改 Provider 配置。
 
 ---
 
@@ -143,6 +145,7 @@ http://localhost:5173
 
 ```env
 DATABASE_URL=sqlite:///./data/app.db
+PUBLIC_DEMO_MODE=false
 
 SEARCH_PROVIDER=anysearch
 ANYSEARCH_API_KEY=your_anysearch_key
@@ -214,12 +217,6 @@ competitor-analysis-agent-system/
 │       ├── api/          # API client and SSE stream
 │       ├── main.jsx      # React workspace
 │       └── styles/       # Product UI styles
-├── docs/
-│   ├── architecture.md
-│   ├── deployment.md
-│   ├── demo-report.md
-│   └── demo-script.md
-├── output/playwright/    # Demo screenshots
 └── docker-compose.yml
 ```
 

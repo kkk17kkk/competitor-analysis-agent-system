@@ -497,10 +497,10 @@ function App() {
   }
 
   async function runAnalysis(form, options = {}) {
-    const { skipXhsLoginCheck = false } = options;
+    const { skipXhsLoginCheck = false, skipProviderReadyCheck = false } = options;
     if (!form) return;
     const latestProviderStatus = await refreshProviderStatus();
-    if (!latestProviderStatus?.workflow_ready) {
+    if (!skipProviderReadyCheck && !latestProviderStatus?.workflow_ready) {
       setError(latestProviderStatus?.issues?.join(" ") || "真实 Provider 尚未就绪。");
       return;
     }
@@ -540,10 +540,14 @@ function App() {
 
   async function launchDemoAnalysis() {
     const demoForm = createDemoTaskForm();
-    const previousSettings = { ...settingsForm };
     setTaskForm(demoForm);
     setSettingsError("");
     setActionMessage("正在启用演示 Provider，并运行完整 Agent 工作流...");
+    if (providerStatus?.public_demo_mode) {
+      await runAnalysis(demoForm, { skipXhsLoginCheck: true, skipProviderReadyCheck: true });
+      return;
+    }
+    const previousSettings = { ...settingsForm };
     try {
       const demoSettings = {
         ...settingsForm,
@@ -557,7 +561,7 @@ function App() {
       if (savedSettings.provider_status) {
         setProviderStatus(savedSettings.provider_status);
       }
-      await runAnalysis(demoForm, { skipXhsLoginCheck: true });
+      await runAnalysis(demoForm, { skipXhsLoginCheck: true, skipProviderReadyCheck: true });
     } catch (err) {
       setError(`演示模式启动失败：${err.message}`);
       setLoading(false);
@@ -922,9 +926,9 @@ function App() {
         <TaskForm form={taskForm} setForm={setTaskForm} validationErrors={formValidationErrors} />
 
         <div className="input-runbar">
-          <button className="run-button" onClick={launchTask} disabled={loading || taskFormInvalid || !providerStatus?.workflow_ready} title={taskFormInvalid ? formValidationErrors.join(" ") : !providerStatus?.workflow_ready ? providerStatus?.issues?.join(" ") : "开始真实分析"}>
+          <button className="run-button" onClick={launchTask} disabled={loading || taskFormInvalid || !providerStatus?.workflow_ready} title={taskFormInvalid ? formValidationErrors.join(" ") : !providerStatus?.workflow_ready ? providerStatus?.issues?.join(" ") : providerStatus?.public_demo_mode ? "运行公开 Mock 演示" : "开始真实分析"}>
             <Play size={17} fill="currentColor" />
-            {loading ? "正在运行..." : "运行真实分析"}
+            {loading ? "正在运行..." : providerStatus?.public_demo_mode ? "运行 Mock 演示" : "运行真实分析"}
           </button>
           {!providerLoading && !providerStatus?.workflow_ready && (
             <p className="field-warning">真实 Provider 未就绪；可先使用“一键运行 Demo”。</p>
@@ -1611,9 +1615,9 @@ function ConfigView({ form, setForm, loading, invalid, validationErrors, error, 
         <div>
           <p className="eyebrow">新建配置</p>
           <h2>配置一个分析任务</h2>
-          <p>填写真实分析范围后，系统会调用当前配置的搜索和 LLM Provider，生成可复核的来源、证据、结论与报告。</p>
+          <p>{providerStatus?.public_demo_mode ? "当前为公开 Mock 演示环境，可生成完整的来源、证据、结论与报告流程。" : "填写真实分析范围后，系统会调用当前配置的搜索和 LLM Provider，生成可复核的来源、证据、结论与报告。"}</p>
           <span className={`template-source ${providerStatus?.workflow_ready ? "ready" : "blocked"}`}>
-            {providerLoading ? "正在检查 Provider..." : providerStatus?.workflow_ready ? "真实 Provider 已就绪" : "真实 Provider 未就绪"}
+            {providerLoading ? "正在检查 Provider..." : providerStatus?.public_demo_mode ? "公开 Mock 演示已就绪" : providerStatus?.workflow_ready ? "真实 Provider 已就绪" : "真实 Provider 未就绪"}
           </span>
         </div>
         <div className="config-actions">
@@ -2565,7 +2569,7 @@ function ProviderStatusPanel({ status, loading, onRefresh }) {
   return (
     <section className={`panel provider-status ${status?.workflow_ready ? "ready" : "blocked"}`}>
       <div className="panel-heading split">
-        <span><ShieldCheck size={16} />真实 Provider 状态</span>
+        <span><ShieldCheck size={16} />{status?.public_demo_mode ? "公开 Demo 状态" : "真实 Provider 状态"}</span>
         <button type="button" className="icon-button" onClick={onRefresh} disabled={loading} aria-label="刷新 Provider 状态">
           <RefreshCw size={14} />
         </button>

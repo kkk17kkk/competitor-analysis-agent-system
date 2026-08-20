@@ -686,6 +686,16 @@ def list_tasks(include_fixture: bool = False):
 
 def _provider_status():
     settings = load_provider_settings()
+    if settings.public_demo_mode:
+        return {
+            "workflow_ready": True,
+            "public_demo_mode": True,
+            "search": {"ready": True, "provider": "mock"},
+            "llm": {"ready": True, "provider": "mock"},
+            "lightweight_llm": {"ready": True, "provider": "mock"},
+            "fallback_enabled": False,
+            "issues": [],
+        }
     issues: list[str] = []
     search_ready = not settings.use_mock_search
     llm_ready = not settings.use_mock_llm
@@ -722,6 +732,7 @@ def _provider_status():
 
     return {
         "workflow_ready": search_ready and llm_ready and not fallback_enabled,
+        "public_demo_mode": False,
         "search": {"ready": search_ready, "provider": settings.search_provider},
         "llm": {"ready": llm_ready, "provider": settings.llm_provider},
         "lightweight_llm": {"ready": lightweight_llm_ready, "provider": settings.lightweight_llm_provider},
@@ -888,6 +899,8 @@ def check_xhs_qrcode_status_v1(payload: XhsQrCodeStatusRequest):
 
 @router.put("/v1/settings")
 async def update_settings_v1(request: Request):
+    if load_provider_settings().public_demo_mode:
+        return problem_response(403, "Public Demo Mode", "Provider settings are read-only in the public demo.")
     payload = await request.json()
     try:
         updates = _normalized_setting_updates(payload)

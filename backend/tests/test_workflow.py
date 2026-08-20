@@ -7,6 +7,7 @@ from app.models.schemas import Claim, Evidence, GraphState, ReviewTicket, Search
 
 @pytest.fixture(autouse=True)
 def use_mock_providers(monkeypatch):
+    monkeypatch.delenv("PUBLIC_DEMO_MODE", raising=False)
     monkeypatch.setenv("USE_MOCK_SEARCH", "true")
     monkeypatch.setenv("USE_MOCK_LLM", "true")
 
@@ -551,6 +552,32 @@ def test_load_provider_settings_defaults_anysearch_max_results_to_15(monkeypatch
     assert settings.anysearch_max_results == 15
 
 
+def test_public_demo_mode_forces_mock_providers(monkeypatch):
+    from app.providers import factory
+    from app.providers.mock_llm import MockLLMProvider
+    from app.providers.mock_search import MockSearchProvider
+
+    monkeypatch.setenv("PUBLIC_DEMO_MODE", "true")
+    monkeypatch.setenv("USE_MOCK_SEARCH", "false")
+    monkeypatch.setenv("USE_MOCK_LLM", "false")
+    monkeypatch.setattr(factory, "_load_env_files", lambda: None)
+    monkeypatch.setattr(factory, "_stored_provider_settings", lambda: {})
+
+    settings = factory.load_provider_settings()
+    bundle = factory.build_provider_bundle(settings)
+    lightweight, lightweight_mode = factory.build_lightweight_llm_provider(settings)
+
+    assert settings.public_demo_mode is True
+    assert settings.use_mock_search is True
+    assert settings.use_mock_llm is True
+    assert isinstance(bundle.search, MockSearchProvider)
+    assert isinstance(bundle.llm, MockLLMProvider)
+    assert bundle.search_mode == "mock_public_demo"
+    assert bundle.llm_mode == "mock_public_demo"
+    assert isinstance(lightweight, MockLLMProvider)
+    assert lightweight_mode == "mock_public_demo"
+
+
 def test_load_provider_settings_normalizes_llm_to_deepseek(monkeypatch):
     from app.providers import factory
 
@@ -950,6 +977,30 @@ def test_v1_stream_task_run_from_config_returns_sse(tmp_path, monkeypatch):
     assert response.headers["content-type"].startswith("text/event-stream")
     assert "event: workflow_started" in response.text
     assert "event: workflow_completed" in response.text
+
+
+def test_public_demo_mode_is_ready_and_settings_are_read_only(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.api import routes
+    from app.main import app
+    from app.storage.sqlite import SQLiteStore
+
+    monkeypatch.setenv("PUBLIC_DEMO_MODE", "true")
+    monkeypatch.setattr(routes, "store", SQLiteStore(str(tmp_path / "app.db")))
+    client = TestClient(app)
+
+    status_response = client.get("/api/v1/provider-status")
+    update_response = client.put("/api/v1/settings", json={"USE_MOCK_SEARCH": False})
+
+    assert status_response.status_code == 200
+    status = status_response.json()["data"]
+    assert status["workflow_ready"] is True
+    assert status["public_demo_mode"] is True
+    assert status["search"] == {"ready": True, "provider": "mock"}
+    assert status["llm"] == {"ready": True, "provider": "mock"}
+    assert update_response.status_code == 403
+    assert update_response.json()["title"] == "Public Demo Mode"
 
 
 def test_v1_exclude_and_restore_evidence_marks_dependents_stale(tmp_path, monkeypatch):
