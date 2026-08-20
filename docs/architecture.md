@@ -4,7 +4,7 @@
 
 当前版本是一个本地可运行、支持一键 Demo 与真实 Provider 的 LangGraph 竞品分析工作台。它覆盖 V1.2 PRD 的核心流程：结构化任务、模板选择、搜索计划、证据链、Review Ticket、补采回环、Agent Trace、结构化报告和 Markdown 报告。
 
-前端提供“一键运行 Demo”，也支持 AnySearch、DuckDuckGo、DeepSeek 和 Seed 的真实 Provider path；Provider 可通过 `.env` 或设置页切换，并在 trace / trust summary 中显示数据来源与运行模式。
+前端提供“一键运行 Demo”，也支持 AnySearch、DuckDuckGo 和 DeepSeek 的真实 Provider path；Provider 可通过 `.env` 或设置页切换，并在 trace / trust summary 中显示数据来源与运行模式。
 
 ## 后端
 
@@ -12,7 +12,7 @@
 - LangGraph 执行 Agent workflow。
 - SQLite 保存任务和完整 workflow result。
 - Demo providers 返回确定性的预跑场景数据。
-- AnySearchProvider / DuckDuckGoSearchProvider / DeepSeekLLMProvider / SeedLLMProvider 通过 provider factory 接入 live path。
+- AnySearchProvider / DuckDuckGoSearchProvider / DeepSeekLLMProvider 通过 provider factory 接入 live path。
 - PM Skill registry 支持导入 GitHub `SKILL.md` 并将方法论作为 Prompt layer 注入 LLM 节点。
 - xiaohongshu-mcp 通过 SocialListeningAgent 采集小红书笔记与评论样本。
 - Report schema 输出 User Journey（兼容 FeatureTree schema）、PricingModel、UserPersona、SWOT。
@@ -61,7 +61,7 @@ SearchProvider
 LLMProvider
   -> MockLLMProvider
   -> DeepSeekLLMProvider
-  -> SeedLLMProvider
+  -> DeepSeekLLMProvider
 ```
 
 当前实现：
@@ -73,7 +73,6 @@ LLMProvider
 - `AnySearchProvider` 已实现，读取 `.env` 中的 API Key / base URL / max results。
 - `DuckDuckGoSearchProvider` 已实现，可用于无搜索 API Key 的公开网页搜索路径。
 - `DeepSeekLLMProvider` 已实现 OpenAI-compatible Chat Completions。
-- `SeedLLMProvider` 已实现 adapter，并可通过 `.env` 切换到 live LLM path。
 - provider factory 已实现 mock / real / fallback 运行时切换。
 - AnySearch 空结果或请求失败会按配置回退到 fixtures，并写入 trace / tool call。
 - Trust Summary 暴露 `provider_mode_label`、`search_mode`、`llm_mode`，避免 Demo fixture run 与 Live provider run 混淆。

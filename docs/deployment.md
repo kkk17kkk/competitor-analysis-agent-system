@@ -54,7 +54,7 @@ docker compose up --build
 
 演示模式可以使用 mock providers，不需要真实 API Key。真实分析模式需要配置搜索与 LLM Provider。
 
-后续接入真实 provider 时，在根目录 `.env` 中配置：
+使用真实 provider 时，在根目录 `.env` 中配置：
 
 ```env
 USE_MOCK_SEARCH=false
@@ -65,13 +65,11 @@ ANYSEARCH_API_KEY=
 DEEPSEEK_API_KEY=
 DEEPSEEK_BASE_URL=https://api.deepseek.com/chat/completions
 DEEPSEEK_MODEL=deepseek-chat
-SEED_API_KEY=
-SEED_BASE_URL=
-SEED_MODEL=
+LIGHTWEIGHT_LLM_PROVIDER=deepseek
 DATABASE_URL=sqlite:///./data/app.db
 ```
 
-不要把 AnySearch 或 Seed API Key 放到前端。前端只需要：
+不要把 AnySearch 或 DeepSeek API Key 放到前端。前端只需要：
 
 ```env
 VITE_API_BASE=http://localhost:8000
@@ -98,17 +96,18 @@ VITE_API_BASE=http://localhost:8000
 - `AnySearchProvider`：读取 `ANYSEARCH_API_KEY`、`ANYSEARCH_BASE_URL` 和 `ANYSEARCH_MAX_RESULTS`。
 - `DuckDuckGoSearchProvider`：可作为无搜索 API Key 的公开网页搜索路径。
 - `DeepSeekLLMProvider`：OpenAI-compatible Chat Completions。
-- `SeedLLMProvider`：可作为主 LLM 或轻量 LLM Provider。
 - Provider factory：根据 `.env` 或前端设置页保存的配置选择 Demo / live provider。
 
 本地 Demo 可在前端点击“一键运行 Demo”直接体验。需要使用真实 Provider 时，请配置搜索和 LLM Key，并关闭 `USE_MOCK_SEARCH`、`USE_MOCK_LLM`、`ALLOW_PROVIDER_FALLBACK` 和 `ALLOW_EMPTY_SEARCH_FALLBACK`。
 
 ## 服务器部署
 
+仓库已经包含 Vercel 配置，供后续发布使用；本次仓库整合未执行公网部署，README 也不提供未经验证的公网地址。
+
 Linux 服务器已安装 Docker 时：
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/kkk17kkk/competitor-analysis-agent-system.git
 cd competitor-analysis-agent-system
 cp .env.example .env
 docker compose up -d --build

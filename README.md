@@ -12,6 +12,8 @@ EvidenceGraph 面向产品经理、增长团队和竞品研究场景。用户输
 
 [🚀 打开 Demo 工作台](http://localhost:5173) · [🧭 架构说明](docs/architecture.md)
 
+> 当前仓库提供本地运行与部署配置，尚未发布由本仓库维护的公网 Demo。Mock 模式用于无密钥演示；真实分析需配置搜索与 DeepSeek Provider。
+
 ---
 
 ## ✨ 项目亮点
@@ -64,7 +66,7 @@ EvidenceGraph 不是把 Agent 简单串成流水线，而是围绕“证据是�
                                 │
 ┌───────────────────────────────▼──────────────────────────────┐
 │ Skill & Provider Layer                                        │
-│ AnySearch / DuckDuckGo · Seed / DeepSeek · xiaohongshu-mcp    │
+│ AnySearch / DuckDuckGo · DeepSeek · xiaohongshu-mcp           │
 │ PM Skills · Prompt Composer · SQLite Store                    │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -95,7 +97,7 @@ EvidenceGraph 不是把 Agent 简单串成流水线，而是围绕“证据是�
 | 后端 | FastAPI、Pydantic v2、Uvicorn、SQLite |
 | Agent Runtime | LangGraph StateGraph、自研 Agent 节点、Review Ticket 闭环 |
 | 搜索 | AnySearch、DuckDuckGo |
-| LLM | Doubao Seed、DeepSeek OpenAI-compatible API |
+| LLM | DeepSeek OpenAI-compatible API |
 | 舆情 | xiaohongshu-mcp-server |
 | 测试与交付 | pytest、Playwright、Docker Compose |
 
@@ -147,16 +149,17 @@ ANYSEARCH_API_KEY=your_anysearch_key
 ANYSEARCH_BASE_URL=https://api.anysearch.com/v1/search
 ANYSEARCH_MAX_RESULTS=15
 
-LLM_PROVIDER=seed
-SEED_API_KEY=your_seed_key
-SEED_BASE_URL=your_seed_base_url
-SEED_MODEL=your_seed_endpoint_id
+LLM_PROVIDER=deepseek
+DEEPSEEK_API_KEY=your_deepseek_key
+DEEPSEEK_BASE_URL=https://api.deepseek.com/chat/completions
+DEEPSEEK_MODEL=deepseek-chat
+LIGHTWEIGHT_LLM_PROVIDER=deepseek
 
 ALLOW_PROVIDER_FALLBACK=false
 ALLOW_EMPTY_SEARCH_FALLBACK=false
 ```
 
-Seed 用作 LLM Provider；AnySearch / DuckDuckGo 用作搜索 Provider。两者职责不同，舆情采集由 `xiaohongshu-mcp-server` 负责。
+DeepSeek 用作当前可配置的真实 LLM Provider；AnySearch / DuckDuckGo 用作搜索 Provider。舆情采集由 `xiaohongshu-mcp-server` 负责。
 
 ---
 

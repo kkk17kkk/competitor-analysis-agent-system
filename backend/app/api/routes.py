@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import base64
 import json
+from queue import Empty, Queue
+from threading import Thread
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
@@ -73,21 +75,21 @@ SETTING_KEYS = {
     "DEEPSEEK_API_KEY",
     "DEEPSEEK_BASE_URL",
     "DEEPSEEK_MODEL",
-    "SEED_API_KEY",
-    "SEED_BASE_URL",
-    "SEED_MODEL",
     "LIGHTWEIGHT_LLM_PROVIDER",
-    "LIGHTWEIGHT_SEED_API_KEY",
-    "LIGHTWEIGHT_SEED_BASE_URL",
-    "LIGHTWEIGHT_SEED_MODEL",
     "ALLOW_PROVIDER_FALLBACK",
     "ALLOW_EMPTY_SEARCH_FALLBACK",
 }
 SECRET_SETTING_KEYS = {
     "ANYSEARCH_API_KEY",
     "DEEPSEEK_API_KEY",
+}
+LEGACY_SEED_SETTING_KEYS = {
     "SEED_API_KEY",
+    "SEED_BASE_URL",
+    "SEED_MODEL",
     "LIGHTWEIGHT_SEED_API_KEY",
+    "LIGHTWEIGHT_SEED_BASE_URL",
+    "LIGHTWEIGHT_SEED_MODEL",
 }
 
 
@@ -141,6 +143,29 @@ def _validation_errors_from_exception(error: ValidationError) -> list[dict[str, 
     return errors
 
 
+def _task_from_v1_payload(payload: dict) -> Task | JSONResponse:
+    adapted = _adapt_v1_task_config(payload)
+    contract_errors = validate_task_config_fields(SimpleNamespace(**adapted))
+    if contract_errors:
+        return problem_response(
+            422,
+            "Validation Error",
+            "Task config validation failed.",
+            contract_errors,
+        )
+
+    try:
+        config = TaskConfig(**adapted)
+    except ValidationError as exc:
+        return problem_response(
+            422,
+            "Validation Error",
+            "Task config validation failed.",
+            _validation_errors_from_exception(exc),
+        )
+    return Task(config=config)
+
+
 def _mark_evidence_dependents_stale(result: WorkflowResult, evidence_id: str, reason: str) -> tuple[list[str], str]:
     stale_claims: list[str] = []
     for claim in result.claims:
@@ -185,6 +210,11 @@ def _ticket_response(ticket):
         "rerun_count": ticket.rerun_count,
         "max_reruns": ticket.max_reruns,
         "resolution_summary": ticket.resolution_summary or ticket.resolution_note,
+        "before_evidence_ids": ticket.before_evidence_ids,
+        "added_evidence_ids": ticket.added_evidence_ids,
+        "improved_claim_ids": ticket.improved_claim_ids,
+        "before_claim_statuses": ticket.before_claim_statuses,
+        "after_claim_statuses": ticket.after_claim_statuses,
         "resolved_at": ticket.resolved_at,
     }
 
@@ -599,6 +629,47 @@ def _sse_message(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
+def _streaming_workflow_response(task: Task) -> StreamingResponse:
+    def event_generator():
+        task.status = "running"
+        final_result = None
+        events: Queue[dict | None] = Queue()
+
+        def worker():
+            try:
+                for event in stream_workflow(task):
+                    events.put(event)
+                events.put(None)
+            except Exception as exc:
+                task.status = "failed"
+                events.put({"event": "workflow_error", "data": {"task_id": task.task_id, "message": str(exc)}})
+                events.put(None)
+
+        Thread(target=worker, daemon=True).start()
+        while True:
+            try:
+                event = events.get(timeout=10)
+            except Empty:
+                yield _sse_message("heartbeat", {"task_id": task.task_id, "status": "running"})
+                continue
+            if event is None:
+                break
+            if event["event"] == "result":
+                final_result = WorkflowResult.model_validate(event["data"])
+            yield _sse_message(event["event"], event["data"])
+        if final_result:
+            try:
+                store.save_result(final_result)
+            except Exception:
+                pass
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @router.get("/tasks")
 def list_tasks(include_fixture: bool = False):
     tasks = store.list_tasks()
@@ -634,22 +705,14 @@ def _provider_status():
     elif settings.llm_provider == "deepseek" and not settings.deepseek_api_key:
         llm_ready = False
         issues.append("DeepSeek 未配置：请设置 DEEPSEEK_API_KEY。")
-    elif settings.llm_provider == "seed" and not (settings.seed_api_key and settings.seed_base_url and settings.seed_model):
-        llm_ready = False
-        issues.append("Seed LLM 未完整配置：请设置 SEED_API_KEY、SEED_BASE_URL 和 SEED_MODEL。")
-    elif settings.llm_provider not in {"deepseek", "seed"}:
+    elif settings.llm_provider != "deepseek":
         llm_ready = False
         issues.append(f"不支持的 LLM Provider：{settings.llm_provider}。")
 
-    if settings.lightweight_llm_provider == "seed" and not (
-        settings.lightweight_seed_api_key and settings.lightweight_seed_base_url and settings.lightweight_seed_model
-    ):
-        lightweight_llm_ready = False
-        issues.append("轻量 LLM 未完整配置：请设置 LIGHTWEIGHT_SEED_API_KEY、LIGHTWEIGHT_SEED_BASE_URL 和 LIGHTWEIGHT_SEED_MODEL。")
-    elif settings.lightweight_llm_provider == "deepseek" and not settings.deepseek_api_key:
+    if settings.lightweight_llm_provider == "deepseek" and not settings.deepseek_api_key:
         lightweight_llm_ready = False
         issues.append("轻量 LLM 使用 DeepSeek，但 DEEPSEEK_API_KEY 未配置。")
-    elif settings.lightweight_llm_provider not in {"deepseek", "seed", "mock"}:
+    elif settings.lightweight_llm_provider not in {"deepseek", "mock"}:
         lightweight_llm_ready = False
         issues.append(f"不支持的轻量 LLM Provider：{settings.lightweight_llm_provider}。")
 
@@ -673,9 +736,8 @@ def _settings_payload() -> dict:
     api_keys = {
         "ANYSEARCH_API_KEY": bool(settings.anysearch_api_key),
         "DEEPSEEK_API_KEY": bool(settings.deepseek_api_key),
-        "SEED_API_KEY": bool(settings.seed_api_key),
-        "LIGHTWEIGHT_SEED_API_KEY": bool(settings.lightweight_seed_api_key),
     }
+    visible_stored_keys = sorted(key for key in stored.keys() if key not in LEGACY_SEED_SETTING_KEYS)
     return {
         "values": {
             "USE_MOCK_SEARCH": settings.use_mock_search,
@@ -687,17 +749,13 @@ def _settings_payload() -> dict:
             "LLM_PROVIDER": settings.llm_provider,
             "DEEPSEEK_BASE_URL": settings.deepseek_base_url,
             "DEEPSEEK_MODEL": settings.deepseek_model,
-            "SEED_BASE_URL": settings.seed_base_url,
-            "SEED_MODEL": settings.seed_model,
             "LIGHTWEIGHT_LLM_PROVIDER": settings.lightweight_llm_provider,
-            "LIGHTWEIGHT_SEED_BASE_URL": settings.lightweight_seed_base_url,
-            "LIGHTWEIGHT_SEED_MODEL": settings.lightweight_seed_model,
             "ALLOW_PROVIDER_FALLBACK": settings.allow_provider_fallback,
             "ALLOW_EMPTY_SEARCH_FALLBACK": settings.allow_empty_search_fallback,
         },
         "api_keys": api_keys,
-        "stored_keys": sorted(stored.keys()),
-        "encrypted_keys": sorted(key for key, value in stored.items() if value.encrypted),
+        "stored_keys": visible_stored_keys,
+        "encrypted_keys": sorted(key for key, value in stored.items() if value.encrypted and key not in LEGACY_SEED_SETTING_KEYS),
         "provider_status": _provider_status(),
     }
 
@@ -1026,44 +1084,38 @@ def generate_user_research_survey(payload: SurveyGenerationRequest):
 @router.post("/v1/tasks", status_code=status.HTTP_201_CREATED)
 async def create_task_v1(request: Request):
     payload = await request.json()
-    adapted = _adapt_v1_task_config(payload)
-    contract_errors = validate_task_config_fields(SimpleNamespace(**adapted))
-    if contract_errors:
-        return problem_response(
-            422,
-            "Validation Error",
-            "Task config validation failed.",
-            contract_errors,
-        )
-
-    try:
-        config = TaskConfig(**adapted)
-    except ValidationError as exc:
-        return problem_response(
-            422,
-            "Validation Error",
-            "Task config validation failed.",
-            _validation_errors_from_exception(exc),
-        )
-
-    task = Task(config=config)
+    task = _task_from_v1_payload(payload)
+    if isinstance(task, JSONResponse):
+        return task
     store.create_task(task)
     return api_response(
         {
             "task_id": task.task_id,
             "status": "draft",
             "task_config": {
-                "product_domain": "generic" if config.domain == "general_product" else config.domain,
-                "target_product": config.target_product,
-                "competitors": config.competitors,
-                "analysis_goals": config.analysis_goals,
-                "report_depth": "brief" if config.depth == "quick" else config.depth,
-                "evidence_strictness": config.evidence_strictness,
-                "output_audience": config.audience,
-                "natural_language_notes": config.notes,
+                "product_domain": "generic" if task.config.domain == "general_product" else task.config.domain,
+                "target_product": task.config.target_product,
+                "competitors": task.config.competitors,
+                "analysis_goals": task.config.analysis_goals,
+                "report_depth": "brief" if task.config.depth == "quick" else task.config.depth,
+                "evidence_strictness": task.config.evidence_strictness,
+                "output_audience": task.config.audience,
+                "natural_language_notes": task.config.notes,
             },
         }
     )
+
+
+@router.post("/v1/tasks/run/stream")
+async def stream_task_run_from_config_v1(request: Request):
+    payload = await request.json()
+    task = _task_from_v1_payload(payload)
+    if isinstance(task, JSONResponse):
+        return task
+    provider_status = _provider_status()
+    if not provider_status["workflow_ready"]:
+        return problem_response(503, "Provider Not Ready", " ".join(provider_status["issues"]))
+    return _streaming_workflow_response(task)
 
 
 @router.get("/tasks/{task_id}")
@@ -1099,26 +1151,7 @@ def stream_task_run_v1(task_id: str):
     provider_status = _provider_status()
     if not provider_status["workflow_ready"]:
         return problem_response(503, "Provider Not Ready", " ".join(provider_status["issues"]))
-
-    def event_generator():
-        task.status = "running"
-        final_result = None
-        try:
-            for event in stream_workflow(task):
-                if event["event"] == "result":
-                    final_result = WorkflowResult.model_validate(event["data"])
-                yield _sse_message(event["event"], event["data"])
-            if final_result:
-                store.save_result(final_result)
-        except Exception as exc:
-            task.status = "failed"
-            yield _sse_message("workflow_error", {"task_id": task_id, "message": str(exc)})
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
+    return _streaming_workflow_response(task)
 
 
 @router.get("/tasks/{task_id}/trace")
@@ -1245,6 +1278,8 @@ async def rerun_review_ticket_v1(ticket_id: str, request: Request):
     if not result:
         return problem_response(404, "Not Found", "Review Ticket not found.")
     ticket = next(item for item in result.review_tickets if item.ticket_id == ticket_id)
+    if ticket.status in {"resolved", "dismissed", "blocked"}:
+        return problem_response(409, "Conflict", f"Ticket is already {ticket.status}; reopen it before running a new evidence-improvement rerun.")
     if ticket.rerun_count >= ticket.max_reruns:
         ticket.status = "blocked"
         ticket.resolution_summary = "Review Ticket reached the maximum rerun count and requires manual intervention."
