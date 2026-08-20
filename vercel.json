@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "cd frontend && npm install && npx vite build --outDir ../public --emptyOutDir",
+  "buildCommand": "cd frontend && npm install && npx vite build --outDir ../backend/app/static --emptyOutDir",
   "rewrites": [
     {
       "source": "/health",
@@ -12,7 +12,7 @@
     },
     {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/api/index.py"
     }
   ]
 }
