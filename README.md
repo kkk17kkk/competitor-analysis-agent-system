@@ -12,10 +12,7 @@ EvidenceGraph 面向产品经理、增长团队和竞品研究场景。用户输
 
 [🚀 在线体验 Demo](https://competitor-analysis-agent-system-two.vercel.app) · [本地运行](http://localhost:5173)
 
-> 在线版本部署于 Vercel，并与 GitHub `main` 自动同步。它固定运行 Mock 演示，不需要访问者提供模型 Key；真实分析需在本地或私有部署中配置搜索与 DeepSeek Provider。
-
-公开展示部署请在服务端设置 `PUBLIC_DEMO_MODE=true`。该模式固定使用 Mock Provider，不读取模型 Key、不依赖跨请求保存的 SQLite 设置，并禁止通过设置接口修改 Provider 配置。
-
+> 真实分析请在本地或私有部署中配置 key 和 Provider。
 ---
 
 ## ✨ 项目亮点
