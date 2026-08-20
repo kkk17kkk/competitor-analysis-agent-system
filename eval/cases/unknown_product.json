@@ -1,0 +1,7 @@
+{
+  "case_id": "unknown_product",
+  "domain": "general_product",
+  "target_product": "Unknown Product",
+  "competitors": ["Alternative Product"],
+  "analysis_goals": ["Keep unsupported conclusions visible for an unknown product comparison."]
+}

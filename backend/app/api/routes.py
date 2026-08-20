@@ -1114,6 +1114,7 @@ async def create_task_v1(request: Request):
                 "evidence_strictness": task.config.evidence_strictness,
                 "output_audience": task.config.audience,
                 "natural_language_notes": task.config.notes,
+                "workflow_mode": task.config.workflow_mode,
             },
         }
     )
@@ -1173,6 +1174,22 @@ def get_trace(task_id: str):
     if not result:
         raise HTTPException(status_code=404, detail="Task has no run result")
     return result.trace
+
+
+@router.get("/tasks/{task_id}/manifest")
+def get_manifest(task_id: str):
+    result = store.get_result(task_id)
+    if not result or not result.manifest:
+        raise HTTPException(status_code=404, detail="Task has no run manifest")
+    return result.manifest
+
+
+@router.get("/v1/tasks/{task_id}/manifest")
+def get_manifest_v1(task_id: str):
+    result = store.get_result(task_id)
+    if not result or not result.manifest:
+        return problem_response(404, "Not Found", "Task has no run manifest.")
+    return api_response(result.manifest)
 
 
 @router.get("/tasks/{task_id}/evidence")

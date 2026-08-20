@@ -1,0 +1,11 @@
+{
+  "case_id": "social_blocked",
+  "domain": "ai_tools",
+  "target_product": "Cursor",
+  "competitors": ["GitHub Copilot"],
+  "analysis_goals": ["Keep social listening permission blockers explicit and non-fabricated."],
+  "social_listening": {
+    "enabled": true,
+    "platforms": [{"platform": "xiaohongshu", "enabled": true, "keywords": ["Cursor"]}]
+  }
+}

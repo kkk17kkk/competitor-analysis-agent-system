@@ -1,0 +1,7 @@
+{
+  "case_id": "multi_competitor",
+  "domain": "ai_tools",
+  "target_product": "Cursor",
+  "competitors": ["GitHub Copilot", "Windsurf", "TRAE"],
+  "analysis_goals": ["Compare positioning, workflow, pricing, users, and adoption risks across products."]
+}

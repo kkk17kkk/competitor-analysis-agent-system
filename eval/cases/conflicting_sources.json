@@ -1,0 +1,7 @@
+{
+  "case_id": "conflicting_sources",
+  "domain": "ai_tools",
+  "target_product": "Cursor",
+  "competitors": ["GitHub Copilot"],
+  "analysis_goals": ["Compare official positioning with independent limitations and uncertainty."]
+}

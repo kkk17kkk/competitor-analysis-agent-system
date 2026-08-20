@@ -1,0 +1,7 @@
+{
+  "case_id": "sparse_evidence",
+  "domain": "general_product",
+  "target_product": "Notion Calendar",
+  "competitors": ["Google Calendar"],
+  "analysis_goals": ["Separate supported product facts from evidence gaps."]
+}

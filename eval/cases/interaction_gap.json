@@ -1,0 +1,7 @@
+{
+  "case_id": "interaction_gap",
+  "domain": "ai_tools",
+  "target_product": "Cursor",
+  "competitors": ["Windsurf"],
+  "analysis_goals": ["Identify claims that still require browser-observed interaction evidence."]
+}

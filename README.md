@@ -23,7 +23,7 @@ EvidenceGraph 面向产品经理、增长团队和竞品研究场景。用户输
 | 🧭 可观测 Trace | 记录节点、Agent、Provider、Prompt 摘要、token、latency、request id 和运行事件。 |
 | 🔁 复核闭环 | Critic 生成 Review Ticket，Research 可按缺口补采，Reviewer 再做证据门禁。 |
 | 🧩 Skill Layer | 支持导入 GitHub `SKILL.md`，把竞品分析、用户画像、定价、SWOT 方法论注入 Prompt。 |
-| 📣 舆情采集 | 通过 `xiaohongshu-mcp` 接入小红书搜索、笔记与评论样本，进入统一证据链。 |
+| 📣 舆情采集 | 通过外部 `xiaohongshu-mcp` HTTP MCP 服务接入小红书搜索、笔记与评论样本；它是可选集成，不属于 core 安装。 |
 | 🧪 可复核交付 | 前端提供证据、结论、报告、trace、工单与可信度摘要，方便评审或产品团队逐项检查。 |
 
 ---
@@ -65,7 +65,7 @@ EvidenceGraph 不是把 Agent 简单串成流水线，而是围绕“证据是�
                                 │
 ┌───────────────────────────────▼──────────────────────────────┐
 │ Skill & Provider Layer                                        │
-│ AnySearch / DuckDuckGo · DeepSeek · xiaohongshu-mcp           │
+│ AnySearch / DuckDuckGo · DeepSeek · optional XHS HTTP MCP    │
 │ PM Skills · Prompt Composer · SQLite Store                    │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -97,20 +97,38 @@ EvidenceGraph 不是把 Agent 简单串成流水线，而是围绕“证据是�
 | Agent Runtime | LangGraph StateGraph、自研 Agent 节点、Review Ticket 闭环 |
 | 搜索 | AnySearch、DuckDuckGo |
 | LLM | DeepSeek OpenAI-compatible API |
-| 舆情 | xiaohongshu-mcp-server |
+| 舆情 | 可选的外部 xiaohongshu-mcp-server（HTTP MCP 边界） |
 | 测试与交付 | pytest、Playwright、Docker Compose |
 
 ---
 
 ## 🚀 快速开始
 
-### 1. 启动后端
+### 1. 创建 Python 3.12 环境并安装
+
+Python 3.12 是推荐项目运行时。Core 安装不会拉取 XHS 包；测试依赖单独放在 dev profile。
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements-dev.txt
+python scripts/smoke_core.py
+```
+
+依赖 profile：
+
+| Profile | 文件 | 用途 |
+| --- | --- | --- |
+| Core | `requirements-core.txt` | FastAPI、LangGraph、Provider、SQLite runtime |
+| Dev | `requirements-dev.txt` | Core + pytest/httpx，用于测试和本地 benchmark |
+| XHS | `requirements-xhs.txt` | 独立 Python 3.12 XHS MCP 服务环境 |
+
+完整安装和 smoke 说明见 [`docs/runtime-setup.md`](docs/runtime-setup.md)。
+
+### 2. 启动后端
 
 ```bash
 cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -120,7 +138,7 @@ uvicorn app.main:app --reload --port 8000
 curl http://localhost:8000/health
 ```
 
-### 2. 启动前端
+### 3. 启动前端
 
 ```bash
 cd frontend
@@ -159,7 +177,14 @@ ALLOW_PROVIDER_FALLBACK=false
 ALLOW_EMPTY_SEARCH_FALLBACK=false
 ```
 
-DeepSeek 用作当前可配置的真实 LLM Provider；AnySearch / DuckDuckGo 用作搜索 Provider。舆情采集由 `xiaohongshu-mcp-server` 负责。
+DeepSeek 用作当前可配置的真实 LLM Provider；AnySearch / DuckDuckGo 用作搜索 Provider。XHS 由独立的 `xiaohongshu-mcp-server` Python 3.12 环境通过 HTTP MCP 提供服务。
+
+```env
+XHS_MCP_URL=http://localhost:18060/mcp
+XHS_MCP_AUTOSTART=false
+# 仅在本机启用外部 bridge autostart 时设置：
+# XHS_MCP_AUTOSTART_PYTHON=/path/to/.venv-xhs/bin/python
+```
 
 ---
 
@@ -183,6 +208,7 @@ http://localhost:8000/docs
 | `POST` | `/api/tasks/{task_id}/run` | 运行工作流 |
 | `GET` | `/api/v1/tasks/{task_id}/run/stream` | SSE 运行流 |
 | `GET` | `/api/tasks/{task_id}/trace` | Agent Trace |
+| `GET` | `/api/tasks/{task_id}/manifest` | Run Manifest / reproducibility metadata |
 | `GET` | `/api/tasks/{task_id}/evidence` | Evidence 列表 |
 | `GET` | `/api/tasks/{task_id}/claims` | Claim 列表 |
 | `GET` | `/api/v1/tasks/{task_id}/review-tickets` | 复核工单 |
@@ -202,6 +228,8 @@ competitor-analysis-agent-system/
 │   ├── app/
 │   │   ├── api/          # FastAPI routes
 │   │   ├── core/         # LangGraph graph and Agent nodes
+│   │   │   ├── routing.py       # deterministic Review-Ticket routing
+│   │   │   └── runtime/         # tracing, ticket lifecycle, run manifest
 │   │   ├── fixtures/     # Demo scenario data
 │   │   ├── models/       # Pydantic schemas
 │   │   ├── providers/    # Search / LLM / XHS providers
@@ -214,8 +242,43 @@ competitor-analysis-agent-system/
 │       ├── api/          # API client and SSE stream
 │       ├── main.jsx      # React workspace
 │       └── styles/       # Product UI styles
+├── docs/
+│   └── runtime-setup.md   # Core/dev/XHS setup and smoke boundaries
+├── requirements-core.txt
+├── requirements-dev.txt
+├── requirements-xhs.txt
 └── docker-compose.yml
 ```
+
+### Example Report
+
+The portfolio-oriented demo report is generated from the same deterministic mock workflow:
+
+- [Markdown report](examples/demo-report.md)
+- [Standalone HTML report](examples/demo-report.html)
+
+Regenerate both artifacts with:
+
+```bash
+python scripts/export_demo_report.py
+```
+
+The backend also includes a small regression comparison between `single_pass` and `adaptive_review`:
+
+```bash
+python scripts/eval_workflow.py
+```
+
+Results are written to `eval/results/latest.json` and `eval/results/latest.md`. Live providers are optional; mock mode is the CI-safe default for this harness.
+
+Optional smoke checks:
+
+```bash
+python scripts/smoke_live_providers.py
+python scripts/smoke_xhs_mcp.py
+```
+
+These commands skip when live credentials or XHS login are unavailable. Use `--require-live`, `--require-login`, or `--require-search` only for a manually configured live environment. XHS startup/login/search is not a CI requirement.
 
 ---
 
@@ -230,4 +293,14 @@ npm run build
 cd backend
 python -m pytest tests -q
 ```
+
+Core import and optional live checks:
+
+```bash
+python scripts/smoke_core.py
+python scripts/smoke_live_providers.py --require-live
+python scripts/smoke_xhs_mcp.py --autostart --require-login --require-search
+```
+
+The first two workflow checks are CI-safe when run without the optional flags. The live provider and XHS commands are manual verification paths and require their respective credentials, network access, browser, and (for XHS) login session.
 

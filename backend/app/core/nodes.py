@@ -42,6 +42,21 @@ from app.providers.xhs_mcp import XhsMcpClient
 from app.skills.registry import SkillPromptComposer, skill_snapshot, skill_trace_fields
 from app.storage.sqlite import SQLiteStore
 from app.templates.catalog import select_template
+from app.core.runtime.tracing import (
+    estimate_tokens as _estimate_tokens,
+    provider_meta as _provider_meta,
+    provider_request_id as _provider_request_id,
+    provider_token_count as _provider_token_count,
+    trace_event as _trace,
+)
+from app.core.runtime.review_tickets import (
+    matching_ticket_claim_ids as _matching_ticket_claim_ids,
+    matching_ticket_claim_statuses as _matching_ticket_claim_statuses,
+    matching_ticket_evidence_ids as _matching_ticket_evidence_ids,
+    resolve_review_ticket_improvements,
+    start_review_ticket_rerun,
+)
+from app.core.runtime.manifest import build_run_manifest
 
 
 CONFIDENCE_RANK = {"low": 1, "medium": 2, "high": 3}
@@ -171,54 +186,6 @@ def _source_authority(raw: dict, query: SearchQuery) -> tuple[str, str, str]:
     return "irrelevant", "low", "Rejected by source relevance gate: source did not match product entity/domain context."
 
 
-def _trace(
-    state: GraphState,
-    agent: str,
-    node: str,
-    event_type: str,
-    summary: str,
-    related_ids: list[str] | None = None,
-    *,
-    input_summary: str = "",
-    output_summary: str = "",
-    prompt_name: str = "",
-    prompt: str = "",
-    input_payload: dict | None = None,
-    output_payload: dict | None = None,
-    token_count: int | None = None,
-    latency_ms: int | None = None,
-    provider: str = "",
-    provider_request_id: str = "",
-    skill_fields: dict[str, str] | None = None,
-) -> None:
-    skill_fields = skill_fields or {}
-    state.trace.append(
-        AgentTraceEvent(
-            task_id=state.task.task_id,
-            agent=agent,
-            node=node,
-            event_type=event_type,
-            summary=summary,
-            input_summary=input_summary,
-            output_summary=output_summary,
-            prompt_name=prompt_name,
-            prompt=prompt,
-            input_payload=input_payload or {},
-            output_payload=output_payload or {},
-            token_count=token_count,
-            latency_ms=latency_ms,
-            provider=provider,
-            provider_request_id=provider_request_id,
-            skill_name=skill_fields.get("skill_name", ""),
-            skill_repo=skill_fields.get("skill_repo", ""),
-            skill_path=skill_fields.get("skill_path", ""),
-            skill_hash=skill_fields.get("skill_hash", ""),
-            skill_license=skill_fields.get("skill_license", ""),
-            related_ids=related_ids or [],
-        )
-    )
-
-
 def _skill_context(slot: str):
     return SkillPromptComposer(skill_store).context_for_slot(slot)
 
@@ -230,34 +197,6 @@ def _complete_with_skill(llm, purpose: str, payload: dict, skill_prompt: str = "
         if "skill_prompt" not in str(exc):
             raise
         return llm.complete_structured(purpose, payload)
-
-
-def _estimate_tokens(*payloads: object) -> int:
-    text = " ".join(json.dumps(payload, ensure_ascii=False, default=str) for payload in payloads)
-    return max(1, len(text) // 4)
-
-
-def _provider_meta(response: object) -> dict:
-    if isinstance(response, dict):
-        meta = response.get("__provider_meta")
-        if isinstance(meta, dict):
-            return meta
-    return {}
-
-
-def _provider_request_id(response: object, provider_name: str) -> str:
-    if provider_name.startswith("Mock"):
-        return "fixture"
-    return str(_provider_meta(response).get("request_id") or "")
-
-
-def _provider_token_count(response: object, fallback: int) -> int:
-    usage = _provider_meta(response).get("usage")
-    if isinstance(usage, dict):
-        total = usage.get("total_tokens")
-        if isinstance(total, int):
-            return total
-    return fallback
 
 
 def planner_node(state: GraphState) -> GraphState:
@@ -305,115 +244,7 @@ def _query_for_ticket(state: GraphState, ticket: ReviewTicket) -> SearchQuery:
     )
 
 
-def _matching_ticket_evidence_ids(state: GraphState, ticket: ReviewTicket) -> list[str]:
-    if not ticket.product or not ticket.missing_evidence_type:
-        return []
-    return [
-        item.evidence_id
-        for item in state.evidence
-        if item.status == "active"
-        and item.product.casefold() == ticket.product.casefold()
-        and item.evidence_type.casefold() == ticket.missing_evidence_type.casefold()
-    ]
-
-
-def _matching_ticket_claim_ids(state: GraphState, ticket: ReviewTicket) -> list[str]:
-    evidence_ids = set(_matching_ticket_evidence_ids(state, ticket))
-    if not evidence_ids:
-        return []
-    return [
-        claim.claim_id
-        for claim in state.claims
-        if claim.verified_status == "passed"
-        and claim.included_in_report
-        and claim.product.casefold() == ticket.product.casefold()
-        and claim.claim_type.casefold() == ticket.missing_evidence_type.casefold()
-        and evidence_ids.intersection(claim.supporting_evidence)
-    ]
-
-
-def _matching_ticket_claim_statuses(state: GraphState, ticket: ReviewTicket) -> list[dict[str, object]]:
-    if not ticket.product or not ticket.missing_evidence_type:
-        return []
-    return [
-        {
-            "claim_id": claim.claim_id,
-            "product": claim.product,
-            "claim_type": claim.claim_type,
-            "verified_status": claim.verified_status,
-            "included_in_report": claim.included_in_report,
-            "supporting_evidence": list(claim.supporting_evidence),
-        }
-        for claim in state.claims
-        if claim.product.casefold() == ticket.product.casefold()
-        and claim.claim_type.casefold() == ticket.missing_evidence_type.casefold()
-    ]
-
-
-def _start_ticket_rerun_snapshot(state: GraphState, ticket: ReviewTicket) -> None:
-    ticket.status = "rerun_started"
-    if not ticket.added_evidence_ids and not ticket.improved_claim_ids:
-        ticket.before_evidence_ids = _matching_ticket_evidence_ids(state, ticket)
-        ticket.before_claim_statuses = _matching_ticket_claim_statuses(state, ticket)
-    ticket.added_evidence_ids = []
-    ticket.improved_claim_ids = []
-    ticket.after_claim_statuses = []
-
-
-def start_review_ticket_rerun(state: GraphState, ticket: ReviewTicket) -> None:
-    _start_ticket_rerun_snapshot(state, ticket)
-
-
-def resolve_review_ticket_improvements(state: GraphState) -> int:
-    resolved = 0
-    for ticket in state.review_tickets:
-        if ticket.status != "rerun_started":
-            continue
-        current = set(_matching_ticket_evidence_ids(state, ticket))
-        before = set(ticket.before_evidence_ids)
-        added = sorted(current - before)
-        after_statuses = _matching_ticket_claim_statuses(state, ticket)
-        before_passed = any(item.get("verified_status") == "passed" and item.get("included_in_report") for item in ticket.before_claim_statuses)
-        improved = [
-            claim_id
-            for claim_id in _matching_ticket_claim_ids(state, ticket)
-            if any(
-                claim.claim_id == claim_id and set(claim.supporting_evidence).intersection(added)
-                for claim in state.claims
-            )
-        ]
-        ticket.added_evidence_ids = added
-        ticket.improved_claim_ids = improved
-        ticket.after_claim_statuses = after_statuses
-        if added and improved and not before_passed:
-            ticket.status = "resolved"
-            ticket.resolution_summary = (
-                f"Rerun added {len(added)} matching evidence item(s) and improved {len(improved)} bound claim(s)."
-            )
-            ticket.resolved_at = now_iso()
-            resolved += 1
-        else:
-            ticket.resolution_summary = (
-                "Rerun did not prove a before/after claim improvement with newly bound evidence; keep this ticket in reviewer attention."
-            )
-    if resolved:
-        _trace(
-            state,
-            "CriticAgent",
-            "critic",
-            "review_ticket_improvement_verified",
-            f"Verified {resolved} Review Ticket improvement(s) through added evidence and improved claims.",
-            [ticket.ticket_id for ticket in state.review_tickets if ticket.status == "resolved" and ticket.added_evidence_ids],
-            output_payload={
-                ticket.ticket_id: {
-                    "added_evidence_ids": ticket.added_evidence_ids,
-                    "improved_claim_ids": ticket.improved_claim_ids,
-                }
-                for ticket in state.review_tickets
-                if ticket.status == "resolved" and ticket.added_evidence_ids
-            },
-        )
-    return resolved
+_start_ticket_rerun_snapshot = start_review_ticket_rerun
 
 
 def _supplemental_query_hint(product_query: str, evidence_type: str) -> str:
@@ -434,7 +265,21 @@ def research_node(state: GraphState) -> GraphState:
     for warning in providers.warnings:
         _trace(state, "ProviderFactory", "providers", "provider_fallback", warning)
     products = [cfg.target_product, *cfg.competitors]
-    open_research_tickets = [t for t in state.review_tickets if t.status == "open" and t.target_node == "ResearchAgent"]
+    active_ticket = next(
+        (
+            ticket
+            for ticket in state.review_tickets
+            if ticket.ticket_id == state.active_review_ticket_id
+            and ticket.target_node == "ResearchAgent"
+            and ticket.status in {"open", "rerun_started"}
+        ),
+        None,
+    )
+    open_research_tickets = [active_ticket] if active_ticket else [
+        ticket
+        for ticket in state.review_tickets
+        if ticket.status == "open" and ticket.target_node == "ResearchAgent"
+    ]
     supplement = bool(open_research_tickets)
 
     if not state.search_plan:
@@ -641,7 +486,8 @@ def research_node(state: GraphState) -> GraphState:
                 ticket.resolution_note = "Supplemental research found matching raw sources; evidence binding will decide whether this ticket resolves."
             else:
                 ticket.resolution_note = "No matching source was available yet; related claims remain uncertain."
-        state.loop_count += 1
+        if not state.active_review_ticket_id:
+            state.loop_count += 1
         _trace(
             state,
             "ResearchAgent",
@@ -3931,5 +3777,7 @@ def trust_summary_node(state: GraphState) -> GraphState:
 
 def finalize_node(state: GraphState) -> GraphState:
     state.task.status = "completed"
+    state.completed_at = now_iso()
+    state.manifest = build_run_manifest(state, completed_at=state.completed_at)
     _trace(state, "Workflow", "finalize", "workflow_completed", "Finalized provider-configured LangGraph workflow result.")
     return state

@@ -22,6 +22,7 @@ TicketStatus = Literal["open", "accepted", "rerun_started", "resolved", "dismiss
 EvidenceStatus = Literal["active", "excluded", "stale"]
 ReportStatus = Literal["draft", "reviewing", "blocked", "stale", "passed"]
 SocialPlatform = Literal["xiaohongshu", "weibo", "douyin"]
+WorkflowMode = Literal["single_pass", "adaptive_review"]
 MAX_ANALYSIS_GOAL_WORDS = 1000
 
 
@@ -145,6 +146,7 @@ class TaskConfig(BaseModel):
     evidence_strictness: Strictness = "high"
     audience: str = "product team"
     notes: str = ""
+    workflow_mode: WorkflowMode = "adaptive_review"
     social_listening: SocialListeningConfig = Field(default_factory=SocialListeningConfig)
 
 
@@ -678,6 +680,26 @@ class TrustSummary(BaseModel):
     summary: str = ""
 
 
+class RunManifest(BaseModel):
+    run_id: str
+    task_id: str
+    workflow_mode: WorkflowMode
+    graph_version: str
+    app_version: str = ""
+    search_provider: str = ""
+    llm_provider: str = ""
+    llm_model: str = ""
+    fixture_mode: bool = True
+    enabled_skills: list[str] = Field(default_factory=list)
+    started_at: str
+    completed_at: str = ""
+    total_tokens: int = 0
+    total_latency_ms: int = 0
+    total_tool_calls: int = 0
+    total_reruns: int = 0
+    total_loops: int = 0
+
+
 class WorkflowResult(BaseModel):
     task: Task
     brief: TaskBrief | None = None
@@ -694,6 +716,7 @@ class WorkflowResult(BaseModel):
     social_posts: list[SocialPost] = Field(default_factory=list)
     social_insights: list[SocialInsight] = Field(default_factory=list)
     skill_assignments: list[dict[str, str]] = Field(default_factory=list)
+    manifest: RunManifest | None = None
 
 
 class GraphState(BaseModel):
@@ -715,6 +738,12 @@ class GraphState(BaseModel):
     skill_assignments: list[dict[str, str]] = Field(default_factory=list)
     loop_count: int = 0
     max_loops: int = 2
+    run_id: str = Field(default_factory=lambda: new_id("run"))
+    started_at: str = Field(default_factory=now_iso)
+    completed_at: str = ""
+    active_review_ticket_id: str = ""
+    active_review_route: str = ""
+    manifest: RunManifest | None = None
 
     def result(self) -> WorkflowResult:
         return WorkflowResult(
@@ -733,4 +762,5 @@ class GraphState(BaseModel):
             social_posts=self.social_posts,
             social_insights=self.social_insights,
             skill_assignments=self.skill_assignments,
+            manifest=self.manifest,
         )

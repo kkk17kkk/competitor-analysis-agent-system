@@ -1,0 +1,7 @@
+{
+  "case_id": "pricing_gap",
+  "domain": "ai_tools",
+  "target_product": "Cursor",
+  "competitors": ["TRAE"],
+  "analysis_goals": ["Compare pricing evidence and identify unresolved commercial gaps."]
+}

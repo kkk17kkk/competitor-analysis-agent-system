@@ -1,0 +1,7 @@
+{
+  "case_id": "irrelevant_search_noise",
+  "domain": "ai_tools",
+  "target_product": "Windsurf",
+  "competitors": ["Cursor"],
+  "analysis_goals": ["Measure source normalization when search results include entity noise."]
+}
