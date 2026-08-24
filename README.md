@@ -23,13 +23,9 @@ EvidenceGraph 把“搜索—判断—补证—报告”组织成一个面向研
 
 ## Demo
 <img src="assets/evidencegraph-overview.png" alt="EvidenceGraph Overview workspace" />
+
 - [Live Demo](https://competitor-analysis-agent-system-two.vercel.app/)
 - [Sample Report](https://competitor-analysis-agent-system-two.vercel.app/reports/demo)
-
-- [Live Demo — EvidenceGraph Workspace](https://competitor-analysis-agent-system-two.vercel.app/)
-- [Sample Report — product capability showcase](https://competitor-analysis-agent-system-two.vercel.app/reports/demo)
-
-线上入口包含两种清晰的数据边界：
 
 - **Demo mode**：`/reports/demo` 使用明确标记的展示样例，用于快速理解报告体验。
 - **Backend mode**：Overview、New Research、Running、Report、Evidence 与 Audit 只渲染真实 API 数据；字段缺失时显示 unavailable，不生成替代结论。
