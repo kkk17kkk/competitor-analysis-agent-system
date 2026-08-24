@@ -10,11 +10,6 @@ EvidenceGraph 把“搜索—判断—补证—报告”组织成一个面向研
 ![LangGraph](https://img.shields.io/badge/LangGraph-0.2.60-5F7DF2?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-111111?style=flat-square)
 
-<p align="center">
-  <img src="assets/evidencegraph-overview.png" width="49%" alt="EvidenceGraph Overview workspace" />
-  <img src="assets/evidencegraph-new-research.png" width="49%" alt="EvidenceGraph New Research workflow" />
-</p>
-
 ## Summary
 
 | Capability | Description |
@@ -27,9 +22,9 @@ EvidenceGraph 把“搜索—判断—补证—报告”组织成一个面向研
 | 🖥️ Product Workspace | 提供 Overview、New Research、Running、Report、Evidence 与 Audit 的完整产品路径。 |
 
 ## Demo
+<img src="assets/evidencegraph-overview.png" alt="EvidenceGraph Overview workspace" />
 - [Live Demo](https://competitor-analysis-agent-system-two.vercel.app/)
 - [Sample Report](https://competitor-analysis-agent-system-two.vercel.app/reports/demo)
-<img width="2496" height="1150" alt="image" src="https://github.com/user-attachments/assets/fe23b8fd-e62b-4513-b751-6a0d17af9e68" />
 
 - [Live Demo — EvidenceGraph Workspace](https://competitor-analysis-agent-system-two.vercel.app/)
 - [Sample Report — product capability showcase](https://competitor-analysis-agent-system-two.vercel.app/reports/demo)
