@@ -14,6 +14,7 @@ function legacyReport(report) {
     generatedAt: report.generated,
     sourceCount: report.sources,
     evidenceCoverage: report.coverage,
+    limitations: [],
     matrix: {
       columns: [report.subject, ...report.competitors],
       rows: report.matrix.map((row) => ({ dimension: row.dimension, values: { [report.subject]: row.cursor, [report.competitors[0]]: row.copilot, [report.competitors[1]]: row.windsurf, [report.competitors[2]]: row.trae } })),
