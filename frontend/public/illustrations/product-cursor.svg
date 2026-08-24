@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Cursor">
+  <defs><filter id="s" x="-35%" y="-35%" width="180%" height="210%"><feDropShadow dy="3" stdDeviation="3" flood-color="#263246" flood-opacity=".18"/></filter></defs>
+  <rect id="tile" x="5" y="5" width="54" height="54" rx="12" fill="#090909"/><g id="facets" stroke="#fff" stroke-opacity=".34" stroke-width="1"><path d="m32 10 20 12v21L32 55 12 43V22Z" fill="#c8c8c8"/><path d="M32 10v45L12 22l40 21Z" fill="#f6f6f6" opacity=".8"/><path d="m12 43 40-21-20 33Z" fill="#777"/><path d="M12 22h40L32 55Z" fill="#aaa" opacity=".52"/></g>
+</svg>

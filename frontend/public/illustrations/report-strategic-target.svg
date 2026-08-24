@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 190" role="img" aria-labelledby="title desc">
+  <title id="title">Strategic opportunity target</title>
+  <desc id="desc">A pastel clay target with concentric coral rings and a blue arrow, resting on soft peach terrain.</desc>
+  <defs>
+    <linearGradient id="terrain" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffd8c5"/><stop offset=".55" stop-color="#ffb28e"/><stop offset="1" stop-color="#f48c70"/></linearGradient>
+    <linearGradient id="terrainLight" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff0e5"/><stop offset="1" stop-color="#ffc6aa"/></linearGradient>
+    <radialGradient id="outer" cx="34%" cy="25%" r="78%"><stop stop-color="#fff7f1"/><stop offset=".7" stop-color="#f8e4d9"/><stop offset="1" stop-color="#ddb6a7"/></radialGradient>
+    <radialGradient id="coral" cx="34%" cy="25%" r="78%"><stop stop-color="#ffb5a1"/><stop offset=".48" stop-color="#ff8068"/><stop offset="1" stop-color="#e95745"/></radialGradient>
+    <linearGradient id="arrow" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#89dcf5"/><stop offset=".55" stop-color="#4ec0e7"/><stop offset="1" stop-color="#2699c7"/></linearGradient>
+    <filter id="shadow" x="-35%" y="-35%" width="180%" height="210%"><feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#985f4c" flood-opacity=".25"/></filter>
+    <filter id="arrowShadow" x="-50%" y="-50%" width="210%" height="230%"><feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#357e99" flood-opacity=".3"/></filter>
+  </defs>
+
+  <g id="terrain">
+    <path d="M8 188c15-45 46-62 81-46 25-31 55-35 83-12 31-19 65-12 99 23v35Z" fill="url(#terrainLight)"/>
+    <path d="M35 188c14-29 39-41 67-27 29-24 60-19 88 8 25-17 52-13 81 9v10Z" fill="url(#terrain)"/>
+    <ellipse cx="152" cy="177" rx="70" ry="12" fill="#b7664e" opacity=".12"/>
+  </g>
+
+  <g id="target" filter="url(#shadow)">
+    <circle cx="145" cy="103" r="66" fill="url(#outer)" stroke="#e8c7ba" stroke-width="3"/>
+    <circle cx="145" cy="103" r="50" fill="url(#coral)"/>
+    <circle cx="145" cy="103" r="35" fill="#fff7f1" stroke="#f4ded3" stroke-width="2"/>
+    <circle cx="145" cy="103" r="21" fill="url(#coral)"/>
+    <circle cx="145" cy="103" r="8" fill="#fff8f2"/>
+    <ellipse cx="123" cy="70" rx="17" ry="8" fill="#fff" opacity=".25" transform="rotate(-32 123 70)"/>
+  </g>
+
+  <g id="arrow" filter="url(#arrowShadow)" transform="rotate(-2 145 103)">
+    <path d="M145 103 207 41" fill="none" stroke="url(#arrow)" stroke-width="10" stroke-linecap="round"/>
+    <path d="m197 42 29-13-13 29-13 3Z" fill="url(#arrow)" stroke="#258fb8" stroke-width="2" stroke-linejoin="round"/>
+    <path d="m204 34 7-18 8 8-5 15Z" fill="#78d4f1" stroke="#2b9ac2" stroke-width="1.5"/>
+    <path d="m218 47 18-7-7-8-15 5Z" fill="#54bfe5" stroke="#2b9ac2" stroke-width="1.5"/>
+    <path d="M151 95 207 39" fill="none" stroke="#d5f6ff" stroke-opacity=".65" stroke-width="2" stroke-linecap="round"/>
+  </g>
+</svg>

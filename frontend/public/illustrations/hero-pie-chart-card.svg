@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 210" role="img" aria-labelledby="title desc">
+  <title id="title">Pastel pie chart card</title>
+  <desc id="desc">A cream clay-style analytics card with a raised multicolor pie chart and three text bars.</desc>
+  <defs>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#fffaf2"/><stop offset="0.55" stop-color="#fff3e6"/><stop offset="1" stop-color="#f9e9d7"/>
+    </linearGradient>
+    <linearGradient id="cardEdge" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#f3dfcc"/><stop offset="1" stop-color="#e7c6aa"/>
+    </linearGradient>
+    <radialGradient id="coral" cx="34%" cy="26%" r="78%">
+      <stop stop-color="#ffc8b7"/><stop offset=".43" stop-color="#ff9278"/><stop offset=".78" stop-color="#f76b54"/><stop offset="1" stop-color="#d84c3b"/>
+    </radialGradient>
+    <linearGradient id="mint" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#9fe0bf"/><stop offset="1" stop-color="#43aa7e"/></linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8ed6f5"/><stop offset="1" stop-color="#349bd1"/></linearGradient>
+    <linearGradient id="amber" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffd77d"/><stop offset="1" stop-color="#eba02c"/></linearGradient>
+    <filter id="cardShadow" x="-25%" y="-30%" width="160%" height="190%">
+      <feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#9e745b" flood-opacity=".2"/>
+    </filter>
+    <filter id="chartShadow" x="-40%" y="-40%" width="180%" height="200%">
+      <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#aa5b42" flood-opacity=".3"/>
+    </filter>
+    <filter id="barShadow" x="-30%" y="-100%" width="160%" height="300%">
+      <feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-color="#9d806d" flood-opacity=".22"/>
+    </filter>
+  </defs>
+
+  <g id="card" transform="rotate(3 150 105)" filter="url(#cardShadow)">
+    <rect id="card-body" x="18" y="24" width="264" height="160" rx="27" fill="url(#card)" stroke="url(#cardEdge)" stroke-width="2"/>
+    <path id="top-highlight" d="M43 27h207c14 0 25 11 27 24" fill="none" stroke="#fff" stroke-opacity=".72" stroke-width="2" stroke-linecap="round"/>
+
+    <g id="pie-chart" filter="url(#chartShadow)">
+      <circle cx="92" cy="94" r="43" fill="url(#coral)"/>
+      <path d="M92 94V51a43 43 0 0 1 38 23Z" fill="url(#mint)" stroke="#4aaa80" stroke-width="1"/>
+      <path d="m92 94 38-20a43 43 0 0 1-1 39Z" fill="url(#blue)" stroke="#328fbe" stroke-width="1"/>
+      <path d="m92 94 37 19a43 43 0 0 1-37 24Z" fill="url(#amber)" stroke="#dc9224" stroke-width="1"/>
+      <ellipse cx="77" cy="71" rx="12" ry="7" fill="#fff" opacity=".22" transform="rotate(-30 77 71)"/>
+    </g>
+
+    <g id="text-bars" fill="none" stroke="#d3c1b1" stroke-width="10" stroke-linecap="round" filter="url(#barShadow)">
+      <path d="M161 72h65"/><path d="M161 103h74"/><path d="M161 134h53"/>
+    </g>
+    <g id="text-highlights" fill="none" stroke="#f8eee5" stroke-width="2" stroke-linecap="round" opacity=".8">
+      <path d="M161 69h65"/><path d="M161 100h74"/><path d="M161 131h53"/>
+    </g>
+  </g>
+</svg>

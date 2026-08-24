@@ -1,0 +1,44 @@
+:root {
+  --eg-canvas: #fbfaf7;
+  --eg-surface: #ffffff;
+  --eg-surface-subtle: #f6f5f1;
+  --eg-ink: #0f2347;
+  --eg-text: #263852;
+  --eg-muted: #667085;
+  --eg-border: #e6e2dc;
+  --eg-border-strong: #d7d1c8;
+  --eg-brand: #f45f4f;
+  --eg-brand-hover: #d94a3d;
+  --eg-focus: #2f80ed;
+  --eg-success: #168a55;
+  --eg-success-bg: #e9f7ef;
+  --eg-info: #2676d2;
+  --eg-info-bg: #eaf3fe;
+  --eg-warning: #b96800;
+  --eg-warning-bg: #fff4de;
+  --eg-danger: #c83e32;
+  --eg-danger-bg: #fdedea;
+  --eg-lilac: #7652c7;
+  --eg-lilac-bg: #f1ecfb;
+  --eg-space-1: 4px;
+  --eg-space-2: 8px;
+  --eg-space-3: 12px;
+  --eg-space-4: 16px;
+  --eg-space-5: 20px;
+  --eg-space-6: 24px;
+  --eg-space-8: 32px;
+  --eg-space-10: 40px;
+  --eg-space-12: 48px;
+  --eg-space-16: 64px;
+  --eg-radius-sm: 8px;
+  --eg-radius-md: 12px;
+  --eg-radius-lg: 16px;
+  --eg-radius-xl: 24px;
+  --eg-radius-round: 999px;
+  --eg-shadow-card: 0 1px 2px rgba(15, 35, 71, .04), 0 10px 28px rgba(15, 35, 71, .06);
+  --eg-shadow-raised: 0 12px 32px rgba(52, 42, 30, .10), inset 0 1px 0 rgba(255, 255, 255, .8);
+  --eg-font-ui: Inter, "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  --eg-font-display: "Plus Jakarta Sans", Inter, "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  --eg-ease: 180ms ease-out;
+}
+

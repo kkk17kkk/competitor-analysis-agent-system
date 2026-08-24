@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 180" role="img" aria-labelledby="title desc">
+  <title id="title">Executive summary report card</title>
+  <desc id="desc">A soft cream analytics card with a raised coral, mint and amber pie chart, text bars and a green verification shield.</desc>
+  <defs>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#fffaf2"/><stop offset=".58" stop-color="#fff0e2"/><stop offset="1" stop-color="#f5dfca"/>
+    </linearGradient>
+    <linearGradient id="cardStroke" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f1d9c4"/><stop offset="1" stop-color="#e5bea0"/></linearGradient>
+    <radialGradient id="coral" cx="34%" cy="25%" r="78%"><stop stop-color="#ffc5b2"/><stop offset=".42" stop-color="#ff8d73"/><stop offset=".78" stop-color="#ef6752"/><stop offset="1" stop-color="#d44739"/></radialGradient>
+    <linearGradient id="mint" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#9ee1bf"/><stop offset="1" stop-color="#3ca378"/></linearGradient>
+    <linearGradient id="amber" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffd681"/><stop offset="1" stop-color="#ee9c25"/></linearGradient>
+    <linearGradient id="shield" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#a8e4b9"/><stop offset="1" stop-color="#53b879"/></linearGradient>
+    <filter id="cardShadow" x="-25%" y="-35%" width="165%" height="200%"><feDropShadow dx="0" dy="9" stdDeviation="8" flood-color="#9a6e56" flood-opacity=".21"/></filter>
+    <filter id="raised" x="-45%" y="-45%" width="190%" height="210%"><feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#996450" flood-opacity=".28"/></filter>
+    <filter id="lineShadow" x="-30%" y="-100%" width="160%" height="300%"><feDropShadow dx="0" dy="2" stdDeviation="1.4" flood-color="#967c69" flood-opacity=".2"/></filter>
+  </defs>
+
+  <g id="card" transform="rotate(4 145 88)" filter="url(#cardShadow)">
+    <rect id="card-body" x="22" y="18" width="238" height="137" rx="25" fill="url(#card)" stroke="url(#cardStroke)" stroke-width="2"/>
+    <path id="card-highlight" d="M46 22h187c13 0 22 9 24 20" fill="none" stroke="#fff" stroke-opacity=".72" stroke-width="2" stroke-linecap="round"/>
+
+    <g id="pie-chart" filter="url(#raised)">
+      <circle cx="87" cy="82" r="39" fill="url(#coral)"/>
+      <path d="M87 82V43a39 39 0 0 1 34 20Z" fill="url(#amber)" stroke="#d78c20" stroke-width="1"/>
+      <path d="m87 82 34-19a39 39 0 0 1-1 34Z" fill="#ff6d55" stroke="#d84c3b" stroke-width="1"/>
+      <path d="m87 82 33 15a39 39 0 0 1-51 21Z" fill="url(#mint)" stroke="#35936d" stroke-width="1"/>
+      <ellipse cx="74" cy="61" rx="10" ry="6" fill="#fff" opacity=".23" transform="rotate(-30 74 61)"/>
+    </g>
+
+    <g id="text-bars" fill="none" stroke="#d0baa7" stroke-width="9" stroke-linecap="round" filter="url(#lineShadow)">
+      <path d="M145 61h61"/><path d="M145 89h70"/><path d="M145 117h52"/>
+    </g>
+    <g id="text-highlights" fill="none" stroke="#f8ebe0" stroke-width="2" stroke-linecap="round"><path d="M145 58h61"/><path d="M145 86h70"/><path d="M145 114h52"/></g>
+
+    <g id="verification-shield" filter="url(#raised)" transform="translate(48 32) scale(.8)">
+      <path d="m238 112 22 9v22c0 17-22 27-22 27s-22-10-22-27v-22Z" fill="url(#shield)" stroke="#48a86e" stroke-width="2"/>
+      <path d="m228 142 7 7 14-17" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="m222 122 14-6" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="3" stroke-linecap="round"/>
+    </g>
+  </g>
+</svg>

@@ -56,6 +56,8 @@ import {
   updateSkillAssignments,
 } from "./api/client";
 import "./styles/app.css";
+import { isPrototypePath, StaticPrototypeApp } from "./new/app/AppRouter";
+import "./new/styles/prototype.css";
 
 const statusCopy = {
   passed: "已通过",
@@ -4039,4 +4041,6 @@ function percent(value) {
   return `${Math.round((value || 0) * 100)}%`;
 }
 
-createRoot(document.getElementById("root")).render(<App />);
+createRoot(document.getElementById("root")).render(
+  isPrototypePath(window.location.pathname) ? <StaticPrototypeApp /> : <App />,
+);

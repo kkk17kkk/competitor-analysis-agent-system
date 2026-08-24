@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Windsurf">
+  <defs><filter id="s" x="-35%" y="-35%" width="180%" height="210%"><feDropShadow dy="3" stdDeviation="3" flood-color="#263246" flood-opacity=".18"/></filter></defs>
+  <rect id="tile" x="5" y="5" width="54" height="54" rx="14" fill="#e9f8ff"/><g id="waves" filter="url(#s)"><path d="M10 34c8-18 19-23 30-13 5 5 9 5 14 1-4 12-10 17-19 13-8-4-16-1-25 7 2-3 2-5 0-8Z" fill="#249ee8"/><path d="M15 40c10-9 18-10 26-5 5 3 9 2 13-1-5 12-14 17-25 12-5-2-10-4-14-6Z" fill="#5fc4f2"/><path d="M18 33c8-5 14-6 21-2" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".65"/></g>
+</svg>

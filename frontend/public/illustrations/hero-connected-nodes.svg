@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 250" role="img" aria-labelledby="title desc">
+  <title id="title">Multicolor connected-node illustration</title>
+  <desc id="desc">A pastel clay-style network of six connected colored nodes with floating accent dots.</desc>
+  <defs>
+    <linearGradient id="connector" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f1d7c6"/>
+      <stop offset="0.52" stop-color="#dcb293"/>
+      <stop offset="1" stop-color="#f5dfd0"/>
+    </linearGradient>
+    <radialGradient id="coral" cx="35%" cy="27%" r="75%">
+      <stop offset="0" stop-color="#ffc8b8"/>
+      <stop offset="0.38" stop-color="#ff8b73"/>
+      <stop offset="0.74" stop-color="#ff644e"/>
+      <stop offset="1" stop-color="#dc4939"/>
+    </radialGradient>
+    <radialGradient id="mint" cx="34%" cy="26%" r="76%">
+      <stop offset="0" stop-color="#d8f4e7"/>
+      <stop offset="0.42" stop-color="#92d8bb"/>
+      <stop offset="0.76" stop-color="#5cbd98"/>
+      <stop offset="1" stop-color="#3b9475"/>
+    </radialGradient>
+    <radialGradient id="blue" cx="34%" cy="26%" r="76%">
+      <stop offset="0" stop-color="#d7f2ff"/>
+      <stop offset="0.4" stop-color="#83caef"/>
+      <stop offset="0.77" stop-color="#47a6dc"/>
+      <stop offset="1" stop-color="#247eb9"/>
+    </radialGradient>
+    <radialGradient id="amber" cx="34%" cy="26%" r="76%">
+      <stop offset="0" stop-color="#ffeab7"/>
+      <stop offset="0.4" stop-color="#ffd075"/>
+      <stop offset="0.76" stop-color="#f7ad35"/>
+      <stop offset="1" stop-color="#dc8616"/>
+    </radialGradient>
+    <radialGradient id="violet" cx="34%" cy="26%" r="76%">
+      <stop offset="0" stop-color="#eee7ff"/>
+      <stop offset="0.4" stop-color="#c5b3eb"/>
+      <stop offset="0.76" stop-color="#9b82d0"/>
+      <stop offset="1" stop-color="#7053aa"/>
+    </radialGradient>
+    <radialGradient id="aquaDot" cx="35%" cy="25%" r="75%">
+      <stop stop-color="#dcf8ff"/><stop offset="0.55" stop-color="#7fd0ec"/><stop offset="1" stop-color="#48a5c6"/>
+    </radialGradient>
+    <filter id="nodeShadow" x="-60%" y="-60%" width="220%" height="240%">
+      <feDropShadow dx="0" dy="7" stdDeviation="6" flood-color="#9c755f" flood-opacity="0.26"/>
+    </filter>
+    <filter id="lineShadow" x="-30%" y="-40%" width="160%" height="200%">
+      <feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#b88d72" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+
+  <g id="connectors" fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#lineShadow)">
+    <path d="M62 198 132 121 211 54 282 112 244 190 132 121" stroke="url(#connector)" stroke-width="9"/>
+    <path d="M62 198 132 121 211 54 282 112 244 190 132 121"
+          stroke="#fff7f0" stroke-opacity="0.72" stroke-width="2.3"/>
+  </g>
+
+  <g id="node-shadows" fill="#a57b65" opacity="0.13">
+    <ellipse cx="62" cy="225" rx="21" ry="7"/><ellipse cx="132" cy="148" rx="22" ry="7"/>
+    <ellipse cx="211" cy="81" rx="22" ry="7"/><ellipse cx="282" cy="139" rx="22" ry="7"/>
+    <ellipse cx="244" cy="218" rx="22" ry="7"/>
+  </g>
+
+  <g id="nodes" filter="url(#nodeShadow)">
+    <circle id="node-violet" cx="62" cy="198" r="25" fill="url(#violet)"/>
+    <circle id="node-blue" cx="132" cy="121" r="25" fill="url(#blue)"/>
+    <circle id="node-coral" cx="211" cy="54" r="25" fill="url(#coral)"/>
+    <circle id="node-mint" cx="282" cy="112" r="25" fill="url(#mint)"/>
+    <circle id="node-amber" cx="244" cy="190" r="25" fill="url(#amber)"/>
+  </g>
+
+  <g id="highlights" fill="#fff" opacity="0.32">
+    <ellipse cx="54" cy="188" rx="8" ry="5" transform="rotate(-30 54 188)"/>
+    <ellipse cx="124" cy="111" rx="8" ry="5" transform="rotate(-30 124 111)"/>
+    <ellipse cx="203" cy="44" rx="8" ry="5" transform="rotate(-30 203 44)"/>
+    <ellipse cx="274" cy="102" rx="8" ry="5" transform="rotate(-30 274 102)"/>
+    <ellipse cx="236" cy="180" rx="8" ry="5" transform="rotate(-30 236 180)"/>
+  </g>
+
+  <g id="floating-accents" filter="url(#nodeShadow)">
+    <circle cx="17" cy="50" r="6" fill="url(#aquaDot)"/>
+    <circle cx="365" cy="76" r="14" fill="#fff1dc" opacity=".9"/>
+    <circle cx="396" cy="210" r="7" fill="url(#mint)"/>
+  </g>
+</svg>

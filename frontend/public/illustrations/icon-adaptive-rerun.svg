@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Adaptive rerun">
+  <defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#f1f8ff"/><stop offset="1" stop-color="#ddecfb"/></linearGradient><linearGradient id="ink" x2="1" y2="1"><stop stop-color="#56a9ef"/><stop offset="1" stop-color="#176fc4"/></linearGradient><filter id="s" x="-40%" y="-40%" width="180%" height="210%"><feDropShadow dy="3" stdDeviation="3" flood-color="#2e6ea2" flood-opacity=".2"/></filter></defs>
+  <rect id="tile" x="5" y="5" width="54" height="54" rx="17" fill="url(#bg)"/>
+  <g id="rerun" fill="none" stroke="url(#ink)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" filter="url(#s)"><path d="M18 25a16 16 0 0 1 27-6l4 4M46 39a16 16 0 0 1-27 6l-4-4"/><path d="M49 15v8h-8M15 49v-8h8"/><path d="M27 27h10v10H27Z" stroke-width="2.5"/></g>
+</svg>

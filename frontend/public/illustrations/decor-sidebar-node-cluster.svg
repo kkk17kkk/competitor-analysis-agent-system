@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 90" role="img" aria-label="Sidebar node cluster">
+  <defs>
+    <radialGradient id="coral" cx="34%" cy="25%" r="78%"><stop stop-color="#ffc7b7"/><stop offset=".48" stop-color="#ff856e"/><stop offset="1" stop-color="#df493a"/></radialGradient>
+    <radialGradient id="mint" cx="34%" cy="25%" r="78%"><stop stop-color="#d7f2e5"/><stop offset=".48" stop-color="#82d0ad"/><stop offset="1" stop-color="#3d9975"/></radialGradient>
+    <radialGradient id="blue" cx="34%" cy="25%" r="78%"><stop stop-color="#d8f3ff"/><stop offset=".48" stop-color="#79c9ed"/><stop offset="1" stop-color="#2e8dc3"/></radialGradient>
+    <radialGradient id="amber" cx="34%" cy="25%" r="78%"><stop stop-color="#ffe8b2"/><stop offset=".48" stop-color="#ffca66"/><stop offset="1" stop-color="#e7921e"/></radialGradient>
+    <filter id="s" x="-50%" y="-50%" width="200%" height="220%"><feDropShadow dy="4" stdDeviation="3" flood-color="#8d6b58" flood-opacity=".22"/></filter>
+  </defs>
+  <g id="connectors" fill="none" stroke="#e6b9a0" stroke-width="4" stroke-linecap="round"><path d="M58 42 31 24M58 42 82 19M58 42 91 51M58 42 35 69"/><path d="M58 42 31 24M58 42 82 19M58 42 91 51M58 42 35 69" stroke="#fff6ef" stroke-width="1.3"/></g>
+  <g id="nodes" filter="url(#s)"><circle cx="58" cy="42" r="13" fill="url(#coral)"/><circle cx="31" cy="24" r="8" fill="url(#mint)"/><circle cx="82" cy="19" r="8" fill="url(#coral)"/><circle cx="91" cy="51" r="9" fill="url(#blue)"/><circle cx="35" cy="69" r="8" fill="url(#amber)"/></g>
+  <g id="highlights" fill="#fff" opacity=".35"><ellipse cx="54" cy="37" rx="4" ry="2.5"/><circle cx="29" cy="22" r="2"/><circle cx="80" cy="17" r="2"/></g>
+</svg>

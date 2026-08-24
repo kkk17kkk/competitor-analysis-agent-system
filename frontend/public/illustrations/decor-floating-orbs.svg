@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" role="img" aria-label="Pastel floating orbs">
+  <defs>
+    <radialGradient id="coral" cx="34%" cy="25%" r="78%"><stop stop-color="#ffd0bc"/><stop offset=".45" stop-color="#ff9878"/><stop offset="1" stop-color="#ed593f"/></radialGradient>
+    <radialGradient id="blue" cx="34%" cy="25%" r="78%"><stop stop-color="#d9f5ff"/><stop offset=".48" stop-color="#83d1ef"/><stop offset="1" stop-color="#3a9bc1"/></radialGradient>
+    <radialGradient id="amber" cx="34%" cy="25%" r="78%"><stop stop-color="#fff0c5"/><stop offset=".48" stop-color="#ffd078"/><stop offset="1" stop-color="#e89a28"/></radialGradient>
+    <radialGradient id="violet" cx="34%" cy="25%" r="78%"><stop stop-color="#f0eaff"/><stop offset=".48" stop-color="#bda9e8"/><stop offset="1" stop-color="#7659af"/></radialGradient>
+    <radialGradient id="mint" cx="34%" cy="25%" r="78%"><stop stop-color="#def5e9"/><stop offset=".48" stop-color="#93d5b8"/><stop offset="1" stop-color="#429a78"/></radialGradient>
+    <filter id="s" x="-60%" y="-60%" width="220%" height="250%"><feDropShadow dy="5" stdDeviation="5" flood-color="#93705e" flood-opacity=".18"/></filter>
+  </defs>
+  <g id="large-orbs" filter="url(#s)"><circle cx="53" cy="122" r="16" fill="url(#coral)"/><circle cx="244" cy="52" r="14" fill="url(#amber)"/><circle cx="285" cy="132" r="12" fill="url(#violet)"/></g>
+  <g id="small-orbs" filter="url(#s)"><circle cx="24" cy="34" r="7" fill="url(#blue)"/><circle cx="137" cy="69" r="6" fill="url(#blue)"/><circle cx="191" cy="137" r="7" fill="url(#mint)"/><circle cx="307" cy="34" r="6" fill="url(#amber)"/></g>
+  <g id="ghost-orbs" opacity=".62"><circle cx="91" cy="43" r="20" fill="#fff0df"/><circle cx="204" cy="32" r="15" fill="#fff2df"/><circle cx="263" cy="91" r="11" fill="#f1eaff"/></g>
+</svg>

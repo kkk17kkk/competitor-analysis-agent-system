@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" role="img" aria-labelledby="title desc">
+  <title id="title">Pastel bar chart card</title>
+  <desc id="desc">A cream clay-style analytics card with raised blue bars, text lines and a green verification shield.</desc>
+  <defs>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#fff9ef"/><stop offset=".55" stop-color="#fff0dc"/><stop offset="1" stop-color="#f8dfc5"/>
+    </linearGradient>
+    <linearGradient id="cardEdge" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f0d6ba"/><stop offset="1" stop-color="#e6b985"/></linearGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#9bdcf6"/><stop offset=".45" stop-color="#58bae8"/><stop offset="1" stop-color="#258dc6"/></linearGradient>
+    <linearGradient id="barPale" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#e1e8ef"/><stop offset=".5" stop-color="#b9cadd"/><stop offset="1" stop-color="#8ba5bd"/></linearGradient>
+    <linearGradient id="shield" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#a7e3b7"/><stop offset="1" stop-color="#55b97c"/></linearGradient>
+    <filter id="cardShadow" x="-25%" y="-30%" width="160%" height="190%"><feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#9e745b" flood-opacity=".21"/></filter>
+    <filter id="raised" x="-40%" y="-40%" width="180%" height="200%"><feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#6d7d85" flood-opacity=".28"/></filter>
+    <filter id="barShadow" x="-30%" y="-100%" width="160%" height="300%"><feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-color="#9d806d" flood-opacity=".22"/></filter>
+  </defs>
+
+  <g id="card" transform="rotate(-4 160 110)" filter="url(#cardShadow)">
+    <rect id="card-body" x="20" y="23" width="280" height="174" rx="29" fill="url(#card)" stroke="url(#cardEdge)" stroke-width="2"/>
+    <path id="top-highlight" d="M47 27h220c15 0 26 11 28 24" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="2" stroke-linecap="round"/>
+
+    <g id="bar-chart" filter="url(#raised)">
+      <path d="M45 162h108" fill="none" stroke="#237eaf" stroke-width="7" stroke-linecap="round"/>
+      <g stroke-width="1.7">
+        <rect x="54" y="114" width="20" height="48" rx="4" fill="url(#barPale)" stroke="#879eb4"/>
+        <rect x="83" y="80" width="20" height="82" rx="4" fill="url(#bar)" stroke="#258fc6"/>
+        <rect x="112" y="45" width="20" height="117" rx="4" fill="url(#bar)" stroke="#258fc6"/>
+      </g>
+      <g fill="#fff" opacity=".27"><rect x="58" y="118" width="4" height="39" rx="2"/><rect x="87" y="84" width="4" height="73" rx="2"/><rect x="116" y="49" width="4" height="108" rx="2"/></g>
+    </g>
+
+    <g id="text-bars" fill="none" stroke="#d2bfad" stroke-width="10" stroke-linecap="round" filter="url(#barShadow)">
+      <path d="M173 69h72"/><path d="M173 103h82"/><path d="M173 137h60"/>
+    </g>
+    <g id="text-highlights" fill="none" stroke="#f8ede2" stroke-width="2" stroke-linecap="round" opacity=".8">
+      <path d="M173 66h72"/><path d="M173 100h82"/><path d="M173 134h60"/>
+    </g>
+
+    <g id="verification-shield" filter="url(#raised)">
+      <path d="m253 139 23 9v24c0 18-23 29-23 29s-23-11-23-29v-24Z" fill="url(#shield)" stroke="#48a86e" stroke-width="2"/>
+      <path d="m242 171 8 8 15-18" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="m237 150 15-6" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="3" stroke-linecap="round"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 170" role="img" aria-label="New research node network">
+  <defs>
+    <radialGradient id="coral" cx="34%" cy="25%" r="78%"><stop stop-color="#ffc8b8"/><stop offset=".45" stop-color="#ff8871"/><stop offset="1" stop-color="#dc4839"/></radialGradient>
+    <radialGradient id="green" cx="34%" cy="25%" r="78%"><stop stop-color="#e4f2c9"/><stop offset=".45" stop-color="#9dcd75"/><stop offset="1" stop-color="#5c9c45"/></radialGradient>
+    <radialGradient id="mint" cx="34%" cy="25%" r="78%"><stop stop-color="#dcf4e8"/><stop offset=".45" stop-color="#8bd3b4"/><stop offset="1" stop-color="#3b9976"/></radialGradient>
+    <radialGradient id="violet" cx="34%" cy="25%" r="78%"><stop stop-color="#eee8ff"/><stop offset=".45" stop-color="#b7a5e3"/><stop offset="1" stop-color="#7458ad"/></radialGradient>
+    <filter id="s" x="-45%" y="-45%" width="190%" height="220%"><feDropShadow dy="6" stdDeviation="5" flood-color="#98715c" flood-opacity=".24"/></filter>
+  </defs>
+  <g id="connectors" fill="none" stroke="#e6b99f" stroke-width="7" stroke-linejoin="round"><path d="M49 94 111 35 180 81 122 137ZM111 35l11 102"/><path d="M49 94 111 35 180 81 122 137ZM111 35l11 102" stroke="#fff7f0" stroke-width="2"/></g>
+  <g id="node-shadows" fill="#9a725e" opacity=".12"><ellipse cx="49" cy="119" rx="19" ry="6"/><ellipse cx="111" cy="61" rx="19" ry="6"/><ellipse cx="180" cy="107" rx="19" ry="6"/><ellipse cx="122" cy="163" rx="19" ry="6"/></g>
+  <g id="nodes" filter="url(#s)"><circle cx="49" cy="94" r="22" fill="url(#green)"/><circle cx="111" cy="35" r="22" fill="url(#coral)"/><circle cx="180" cy="81" r="22" fill="url(#mint)"/><circle cx="122" cy="137" r="22" fill="url(#violet)"/></g>
+  <g id="highlights" fill="#fff" opacity=".32"><ellipse cx="42" cy="86" rx="7" ry="4" transform="rotate(-30 42 86)"/><ellipse cx="104" cy="27" rx="7" ry="4" transform="rotate(-30 104 27)"/><ellipse cx="173" cy="73" rx="7" ry="4" transform="rotate(-30 173 73)"/><ellipse cx="115" cy="129" rx="7" ry="4" transform="rotate(-30 115 129)"/></g>
+</svg>

@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" role="img" aria-labelledby="title desc">
+  <title id="title">Pastel sidebar landscape</title>
+  <desc id="desc">A soft clay-style landscape with a coral sun, layered mint and aqua hills, warm peach ridges, a green foreground and a small tree.</desc>
+  <defs>
+    <linearGradient id="sun" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#ffd39b"/><stop offset=".45" stop-color="#ff9a71"/><stop offset="1" stop-color="#f2533d"/>
+    </linearGradient>
+    <linearGradient id="aquaBack" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#9ddfd8"/><stop offset=".55" stop-color="#70c9c5"/><stop offset="1" stop-color="#48b2b0"/>
+    </linearGradient>
+    <linearGradient id="aquaMid" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#d9f0ee"/><stop offset=".55" stop-color="#acdeda"/><stop offset="1" stop-color="#81c9c5"/>
+    </linearGradient>
+    <linearGradient id="creamHill" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#fff5dd"/><stop offset="1" stop-color="#e5ead6"/>
+    </linearGradient>
+    <linearGradient id="coralHill" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#ffc2a3"/><stop offset=".52" stop-color="#ff987d"/><stop offset="1" stop-color="#ef705e"/>
+    </linearGradient>
+    <linearGradient id="grass" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#dcedc4"/><stop offset=".48" stop-color="#c1dfa6"/><stop offset="1" stop-color="#9bc47c"/>
+    </linearGradient>
+    <radialGradient id="treeMint" cx="34%" cy="25%" r="78%">
+      <stop stop-color="#cce8ad"/><stop offset=".5" stop-color="#8fc67f"/><stop offset="1" stop-color="#5ba36b"/>
+    </radialGradient>
+    <radialGradient id="treeGreen" cx="34%" cy="25%" r="78%">
+      <stop stop-color="#b4daa0"/><stop offset=".52" stop-color="#72b477"/><stop offset="1" stop-color="#468d5a"/>
+    </radialGradient>
+    <filter id="softShadow" x="-30%" y="-40%" width="170%" height="210%">
+      <feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#78634e" flood-opacity=".16"/>
+    </filter>
+    <filter id="sunShadow" x="-50%" y="-50%" width="200%" height="220%">
+      <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#bf6b4b" flood-opacity=".22"/>
+    </filter>
+  </defs>
+
+  <g id="sun" filter="url(#sunShadow)">
+    <circle cx="158" cy="36" r="16" fill="url(#sun)"/>
+    <ellipse cx="153" cy="30" rx="5" ry="3" fill="#fff" opacity=".32" transform="rotate(-28 153 30)"/>
+  </g>
+
+  <g id="distant-hills">
+    <path d="M0 91C22 57 46 54 74 79c13 11 25 24 39 36 29-23 56-25 82-6 27 20 53 26 77 18 18-6 34-6 48-1v114H0Z" fill="url(#aquaBack)"/>
+    <path d="M0 113c31-25 61-24 91 1 27 23 54 27 82 14 35-17 70-12 105 17 17-9 31-11 42-8v103H0Z" fill="url(#aquaMid)"/>
+    <path d="M0 131c31-16 61-13 91 10 23 18 47 18 71 1 28-20 56-21 85-1 27-11 51-9 73 7v92H0Z" fill="#dff1ef" opacity=".8"/>
+  </g>
+
+  <g id="warm-ridges">
+    <path d="M0 143c23-17 48-15 76 6 24 18 45 24 64 18 34-11 62-8 84 8 34-15 66-12 96 9v56H0Z" fill="url(#creamHill)"/>
+    <path d="M0 159c28-19 54-17 78 7 20 20 43 27 68 20 30-9 56-3 79 16 32-14 64-10 95 11v27H0Z" fill="url(#coralHill)"/>
+    <path d="M58 179c23-20 45-19 67 4 19 20 40 25 63 15 23-11 48-6 74 13 21-4 40 0 58 11v18H46Z" fill="#ffb28d" opacity=".8"/>
+  </g>
+
+  <g id="foreground">
+    <path d="M0 158c44-9 88-2 132 20 57 29 119 45 188 50v12H0Z" fill="url(#grass)"/>
+    <path d="M0 168c47-7 91 2 132 24 52 27 115 42 188 45v3H0Z" fill="#b5d695" opacity=".55"/>
+  </g>
+
+  <g id="tree" filter="url(#softShadow)">
+    <path d="M65 205v-50" fill="none" stroke="#71513e" stroke-width="4.5" stroke-linecap="round"/>
+    <path d="m65 171-21-17m21 29 23-18m-23 3 13-21m-13 36-15-6" fill="none" stroke="#71513e" stroke-width="3.4" stroke-linecap="round"/>
+    <g id="tree-crown">
+      <circle cx="42" cy="159" r="19" fill="url(#treeGreen)"/>
+      <circle cx="67" cy="145" r="24" fill="url(#treeMint)"/>
+      <circle cx="89" cy="163" r="20" fill="url(#treeGreen)"/>
+      <ellipse cx="60" cy="135" rx="8" ry="5" fill="#fff" opacity=".18" transform="rotate(-28 60 135)"/>
+    </g>
+  </g>
+</svg>

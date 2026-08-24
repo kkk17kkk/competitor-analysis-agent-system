@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img">
+  <defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#e5f7ed"/></linearGradient><linearGradient id="ink" x2="1" y2="1"><stop stop-color="#15955e" stop-opacity=".72"/><stop offset="1" stop-color="#15955e"/></linearGradient><filter id="s" x="-40%" y="-40%" width="180%" height="210%"><feDropShadow dy="3" stdDeviation="3" flood-color="#15955e" flood-opacity=".18"/></filter></defs>
+  <rect id="tile" x="5" y="5" width="54" height="54" rx="17" fill="url(#bg)"/>
+  <g id="symbol" fill="none" stroke="url(#ink)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" filter="url(#s)"><rect x="16" y="22" width="32" height="25" rx="9"/><path d="M32 14v8M26 31h.1M38 31h.1M25 39h14M12 31h4M48 31h4"/></g>
+</svg>
