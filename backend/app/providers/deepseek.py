@@ -22,8 +22,16 @@ PURPOSE_SCHEMAS = {
         "Suggest only actionable gaps that can improve evidence coverage or traceability."
     ),
     "report_enhancement": (
-        "Return JSON: {\"executive_summary\":[string],\"strategic_recommendations\":[string],"
-        "\"caveats\":[string]}. Keep every sentence evidence-bound, polished, and plain-language. "
+        "Return JSON: {\"executive_summary\":[bound_item],\"decision_highlights\":{"
+        "\"strongest_advantage\":highlight|null,\"biggest_risk\":highlight|null,"
+        "\"recommended_direction\":highlight|null},\"comparison_matrix\":[{"
+        "\"dimension\":string,\"values\":{product:string|null},\"claim_ids\":[claim_id],\"evidence_ids\":[evidence_id]}],"
+        "\"key_insights\":[bound_item],\"strategic_opportunities\":[bound_item],\"limitations\":[string]}. "
+        "bound_item is {\"text\":string,\"claim_ids\":[claim_id],\"evidence_ids\":[evidence_id],"
+        "\"confidence\":\"low|medium|high\",\"product\":string}. highlight is {\"title\":string,"
+        "\"body\":string,\"claim_ids\":[claim_id],\"evidence_ids\":[evidence_id],"
+        "\"confidence\":\"low|medium|high\"}. Use only IDs and products present in the input. "
+        "Omit unsupported conclusions by returning empty arrays or null fields. Keep every sentence evidence-bound, polished, and plain-language. "
         "Paraphrase source material into formal PM analysis Chinese; do not paste source wording except when explicitly describing Resources."
     ),
     "analysis_goal_polish": (

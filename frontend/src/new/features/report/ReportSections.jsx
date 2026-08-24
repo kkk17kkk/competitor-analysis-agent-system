@@ -40,5 +40,10 @@ export function StrategicOpportunities({ items }) {
   );
 }
 
+export function ReportLimitations({ items }) {
+  if (!items.length) return null;
+  return <Card className="eg-data-state"><span className="eg-kicker">Limitations</span><h3>What still needs verification</h3><ul>{items.map((item) => <li key={item}>{item}</li>)}</ul></Card>;
+}
+
 function EmptySection({ label, body }) { return <Card className="eg-data-state"><h3>{label}</h3><p>{body}</p></Card>; }
 function EmptyText({ label }) { return <p className="eg-unavailable">{label}</p>; }

@@ -42,33 +42,55 @@ class MockLLMProvider(LLMProvider):
             secondary_claim_id = secondary_claim.get("claim_id", "")
             primary_evidence = primary_claim.get("supporting_evidence", [])[:2] if isinstance(primary_claim.get("supporting_evidence"), list) else []
             secondary_evidence = secondary_claim.get("supporting_evidence", [])[:2] if isinstance(secondary_claim.get("supporting_evidence"), list) else []
+            bound_items = [item for item in [primary_claim, secondary_claim] if item.get("claim_id")]
+            matrix_rows = []
+            for claim_type in sorted({item.get("claim_type") for item in included_claims if item.get("claim_type")}):
+                matching = [item for item in included_claims if item.get("claim_type") == claim_type]
+                matrix_rows.append(
+                    {
+                        "dimension": claim_type.replace("_", " ").title(),
+                        "values": {item.get("product", ""): item.get("claim", "") for item in matching if item.get("product")},
+                        "claim_ids": [item["claim_id"] for item in matching if item.get("claim_id")],
+                        "evidence_ids": [evidence_id for item in matching for evidence_id in item.get("supporting_evidence", [])],
+                    }
+                )
+
+            def bound_item(item: dict, text: str) -> dict:
+                return {
+                    "text": text,
+                    "claim_ids": [item["claim_id"]],
+                    "evidence_ids": item.get("supporting_evidence", [])[:2],
+                    "confidence": "medium",
+                    "product": item.get("product", ""),
+                }
+
+            summary_texts = [
+                f"本报告围绕 {target} 与 {', '.join(competitors)} 的差异展开，当前有 {passed_claims}/{total_claims} 条结论通过证据复核。",
+                f"第三方来源占比约为 {third_party_ratio:.0%}，应把它作为校准官方叙述的外部视角，而不是替代事实核验。",
+            ]
+            executive_summary = [bound_item(item, summary_texts[index]) for index, item in enumerate(bound_items)]
+            primary_text = "当前优势判断已绑定通过复核的产品证据。" if primary_claim.get("claim") else ""
+            secondary_text = "后续方向应以已验证差异为边界，并继续补齐证据缺口。" if secondary_claim.get("claim") else ""
+            highlight = lambda item, title, body: {
+                "title": title,
+                "body": body,
+                "claim_ids": [item["claim_id"]],
+                "evidence_ids": item.get("supporting_evidence", [])[:2],
+                "confidence": "medium",
+            } if item.get("claim_id") and body else None
             return {
-                "executive_summary": [
-                    {
-                        "text": f"本报告围绕 {target} 与 {', '.join(competitors)} 的差异展开，当前有 {passed_claims}/{total_claims} 条结论通过证据复核。",
-                        "claim_ids": [primary_claim_id] if primary_claim_id else [],
-                        "evidence_ids": primary_evidence,
-                    },
-                    {
-                        "text": f"第三方来源占比约为 {third_party_ratio:.0%}，应把它作为校准官方叙述的外部视角，而不是替代事实核验。",
-                        "claim_ids": [secondary_claim_id] if secondary_claim_id else [],
-                        "evidence_ids": secondary_evidence,
-                    },
-                ],
-                "strategic_recommendations": [
-                    {
-                        "text": "发布前优先补齐价格、关键功能和用户反馈的交叉证据，避免报告只复述厂商材料。",
-                        "claim_ids": [primary_claim_id] if primary_claim_id else [],
-                        "evidence_ids": primary_evidence,
-                    },
-                    {
-                        "text": "保留 Evidence ID 与 Resource 摘录，方便产品、增长和技术团队追溯每个判断的依据。",
-                        "claim_ids": [secondary_claim_id] if secondary_claim_id else [],
-                        "evidence_ids": secondary_evidence,
-                    },
-                ],
-                "caveats": [
-                    "Mock LLM 输出用于无密钥演示验证；真实发布前仍需使用 live provider 或人工复核。",
+                "executive_summary": executive_summary,
+                "decision_highlights": {
+                    "strongest_advantage": highlight(primary_claim, "Evidence-backed advantage", primary_text),
+                    "biggest_risk": None,
+                    "recommended_direction": highlight(secondary_claim, "Evidence-backed direction", secondary_text),
+                },
+                "comparison_matrix": matrix_rows,
+                "key_insights": executive_summary,
+                "strategic_opportunities": [],
+                "limitations": (["未绑定证据，需复核：当前没有可用于结构化结论的已验证证据。"] if not bound_items else []) + [
+                    f"当前 {passed_claims}/{total_claims} 条结论通过复核；第三方来源占比为 {third_party_ratio:.0%}。",
+                    "Mock LLM 输出仅用于无密钥工作流验证。",
                 ],
                 "__provider_meta": {"skill_prompt_used": bool(skill_prompt)},
             }

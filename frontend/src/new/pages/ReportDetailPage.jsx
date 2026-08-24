@@ -6,7 +6,7 @@ import { setEvidenceExcluded, setEvidenceRestored } from "../adapters/evidenceAd
 import { runReviewAction } from "../adapters/reviewAdapter";
 import { AuditPanel } from "../features/audit/AuditPanel";
 import { EvidencePanel } from "../features/report/EvidencePanel";
-import { ComparisonMatrix, DecisionHighlights, ExecutiveSummary, KeyInsights, StrategicOpportunities } from "../features/report/ReportSections";
+import { ComparisonMatrix, DecisionHighlights, ExecutiveSummary, KeyInsights, ReportLimitations, StrategicOpportunities } from "../features/report/ReportSections";
 
 const tabs = [{ id: "report", label: "Report" }, { id: "evidence", label: "Evidence" }, { id: "audit", label: "Audit" }];
 
@@ -86,7 +86,7 @@ function ReportHeader({ report }) {
 }
 
 function ReportView({ report }) {
-  return <div className="eg-report-layout"><main><ExecutiveSummary report={report} /><DecisionHighlights highlights={report.highlights} /><ComparisonMatrix matrix={report.matrix} /><StrategicOpportunities items={report.opportunities} /></main><aside><TrustPanel report={report} /><KeyInsights insights={report.insights} /></aside></div>;
+  return <div className="eg-report-layout"><main><ExecutiveSummary report={report} /><DecisionHighlights highlights={report.highlights} /><ComparisonMatrix matrix={report.matrix} /><StrategicOpportunities items={report.opportunities} /></main><aside><TrustPanel report={report} /><KeyInsights insights={report.insights} /><ReportLimitations items={report.limitations} /></aside></div>;
 }
 
 function TrustPanel({ report }) {

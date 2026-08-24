@@ -1615,12 +1615,19 @@ def test_writer_uses_structured_llm_report_enhancement(monkeypatch):
             claim_id = payload["included_claims"][0]["claim_id"]
             evidence_id = payload["included_claims"][0]["supporting_evidence"][0]
             return {
-                "executive_summary": [{"text": "Seed synthesized an executive summary.", "claim_ids": [claim_id], "evidence_ids": [evidence_id]}],
-                "strategic_recommendations": [
-                    {"text": "Seed recommended validating pricing evidence.", "claim_ids": [claim_id], "evidence_ids": [evidence_id]},
-                    {"text": "Seed attempted an unbound recommendation."},
+                "executive_summary": [{"text": "Seed synthesized an executive summary.", "claim_ids": [claim_id], "evidence_ids": [evidence_id], "confidence": "high"}],
+                "decision_highlights": {
+                    "strongest_advantage": {"title": "Seed advantage", "body": "Bound advantage.", "claim_ids": [claim_id], "evidence_ids": [evidence_id], "confidence": "high"},
+                    "biggest_risk": None,
+                    "recommended_direction": None,
+                },
+                "comparison_matrix": [{"dimension": "Positioning", "values": {"Cursor": "Bound position."}, "claim_ids": [claim_id], "evidence_ids": [evidence_id]}],
+                "key_insights": [
+                    {"text": "Seed insight.", "claim_ids": [claim_id], "evidence_ids": [evidence_id]},
+                    {"text": "Seed attempted an unbound insight."},
                 ],
-                "caveats": ["Seed caveat stays evidence-bound."],
+                "strategic_opportunities": [{"text": "Seed recommended validating pricing evidence.", "claim_ids": [claim_id], "evidence_ids": [evidence_id]}],
+                "limitations": ["Seed limitation remains explicit."],
             }
 
     monkeypatch.setattr(
@@ -1646,7 +1653,13 @@ def test_writer_uses_structured_llm_report_enhancement(monkeypatch):
     assert written.report.markdown.index("## 结构化综合摘要") < written.report.markdown.index("## 决策摘要")
     assert written.report.markdown.index("## 结构化综合摘要") < written.report.markdown.index("## 数据来源（Resources）")
     assert "依据：cl_" in written.report.markdown
-    assert "未绑定证据，需复核：Seed attempted an unbound recommendation." in written.report.markdown
+    assert [item.text for item in written.report.executive_summary] == ["Seed synthesized an executive summary."]
+    assert written.report.decision_highlights.strongest_advantage.title == "Seed advantage"
+    assert written.report.comparison_matrix[0].values["Cursor"] == "Bound position."
+    assert [item.text for item in written.report.key_insights] == ["Seed insight."]
+    assert [item.text for item in written.report.strategic_opportunities] == ["Seed recommended validating pricing evidence."]
+    assert written.report.limitations == ["Seed limitation remains explicit."]
+    assert "Seed attempted an unbound insight." not in written.report.model_dump_json()
     assert any(call.tool == "SeedLLMProvider" and call.operation == "complete_structured" for call in written.tool_calls)
     assert any(event.event_type == "llm_enhancement_applied" for event in written.trace)
 

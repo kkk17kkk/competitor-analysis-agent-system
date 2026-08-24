@@ -639,6 +639,35 @@ class ReportSection(BaseModel):
     created_at: str = Field(default_factory=now_iso)
 
 
+class StructuredReportItem(BaseModel):
+    text: str
+    claim_ids: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
+    confidence: Literal["low", "medium", "high"] | None = None
+    product: str = ""
+
+
+class DecisionHighlight(BaseModel):
+    title: str
+    body: str = ""
+    claim_ids: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
+    confidence: Literal["low", "medium", "high"] | None = None
+
+
+class DecisionHighlights(BaseModel):
+    strongest_advantage: DecisionHighlight | None = None
+    biggest_risk: DecisionHighlight | None = None
+    recommended_direction: DecisionHighlight | None = None
+
+
+class ComparisonMatrixRow(BaseModel):
+    dimension: str
+    values: dict[str, str | None] = Field(default_factory=dict)
+    claim_ids: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
+
+
 class Report(BaseModel):
     report_id: str = Field(default_factory=lambda: new_id("rep"))
     task_id: str
@@ -650,6 +679,12 @@ class Report(BaseModel):
     unsupported_claim_count: int = 0
     stale_claim_count: int = 0
     evidence_coverage_rate: float = 0
+    executive_summary: list[StructuredReportItem] = Field(default_factory=list)
+    decision_highlights: DecisionHighlights = Field(default_factory=DecisionHighlights)
+    comparison_matrix: list[ComparisonMatrixRow] = Field(default_factory=list)
+    key_insights: list[StructuredReportItem] = Field(default_factory=list)
+    strategic_opportunities: list[StructuredReportItem] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
     feature_tree: FeatureTree | None = None
     pricing_model: PricingModel | None = None
     user_personas: list[UserPersona] = Field(default_factory=list)

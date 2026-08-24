@@ -3176,7 +3176,7 @@ def writer_node(state: GraphState) -> GraphState:
             lines.append(f"    > {excerpt}")
     lines.extend(["", "## Agent 协作记录", f"- Review Tickets: {len(state.review_tickets)}", f"- Trace Events: {len(state.trace)}"])
     markdown = "\n".join(lines)
-    markdown = _enhance_report_with_llm(state, markdown, included, uncertain, trust)
+    markdown, structured_report = _enhance_report_with_llm(state, markdown, included, uncertain, trust)
     report_status = "reviewing" if trust.unresolved_ticket_count else "passed"
     if any(claim.verified_status == "blocked" for claim in state.claims):
         report_status = "blocked"
@@ -3194,6 +3194,7 @@ def writer_node(state: GraphState) -> GraphState:
             if state.claims
             else 0
         ),
+        **structured_report,
         feature_tree=feature_tree,
         pricing_model=pricing_model,
         user_personas=personas,
@@ -3213,7 +3214,13 @@ def _social_platform_label(platform: str) -> str:
     }.get(platform, platform)
 
 
-def _enhance_report_with_llm(state: GraphState, markdown: str, included: list[Claim], uncertain: list[Claim], trust: TrustSummary) -> str:
+def _enhance_report_with_llm(
+    state: GraphState,
+    markdown: str,
+    included: list[Claim],
+    uncertain: list[Claim],
+    trust: TrustSummary,
+) -> tuple[str, dict]:
     providers = build_provider_bundle()
     payload = _report_enhancement_payload(state, included, uncertain, trust)
     skill_contexts = SkillPromptComposer(skill_store).contexts_for_slots(
@@ -3276,7 +3283,7 @@ def _enhance_report_with_llm(state: GraphState, markdown: str, included: list[Cl
             skill_fields=skill_fields,
         )
         if not providers.allow_provider_fallback:
-            return markdown
+            return markdown, {}
         fallback = MockLLMProvider()
         started = time.perf_counter()
         response = _complete_with_skill(fallback, "report_enhancement", payload, skill_prompt)
@@ -3285,7 +3292,12 @@ def _enhance_report_with_llm(state: GraphState, markdown: str, included: list[Cl
         status = "success"
         summary = "LLM request failed; MockLLMProvider generated fallback report enhancement."
 
-    enhancement = _format_report_enhancement(response, included)
+    structured_report = _structured_report_data(
+        response,
+        included,
+        [state.task.config.target_product, *state.task.config.competitors],
+    )
+    enhancement = _format_report_enhancement(structured_report)
     token_count = _provider_token_count(response, _estimate_tokens(payload, response))
     provider_request_id = _provider_request_id(response, provider_name)
     if not enhancement:
@@ -3325,7 +3337,7 @@ def _enhance_report_with_llm(state: GraphState, markdown: str, included: list[Cl
             provider_request_id=provider_request_id,
             skill_fields=skill_fields,
         )
-        return markdown
+        return markdown, structured_report
 
     state.tool_calls.append(
         ToolCall(
@@ -3363,7 +3375,7 @@ def _enhance_report_with_llm(state: GraphState, markdown: str, included: list[Cl
         provider_request_id=provider_request_id,
         skill_fields=skill_fields,
     )
-    return _insert_report_enhancement(markdown, enhancement)
+    return _insert_report_enhancement(markdown, enhancement), structured_report
 
 
 def _insert_report_enhancement(markdown: str, enhancement: str) -> str:
@@ -3390,8 +3402,8 @@ def _report_enhancement_payload(state: GraphState, included: list[Claim], uncert
             "Paraphrase evidence into plain-language analysis; do not paste source wording in the body.",
             "Use original wording only in the Resources section and keep excerpts short and cleaned.",
             "Call out third-party support separately from official vendor claims.",
-            "Every executive_summary and strategic_recommendations item must include claim_ids or evidence_ids from included_claims.",
-            "Unbound synthesis must be returned as caveats, not as a factual conclusion.",
+            "Every generated report item and matrix row must include claim_ids or evidence_ids from included_claims.",
+            "Return null or an empty array for any unsupported report field.",
         ],
         "included_claims": [
             {
@@ -3426,68 +3438,113 @@ def _report_enhancement_payload(state: GraphState, included: list[Claim], uncert
     }
 
 
-def _format_report_enhancement(response: dict, included: list[Claim]) -> str:
-    executive_summary, unbound_summary = _bound_enhancement_items(response.get("executive_summary"), included)
-    recommendations, unbound_recommendations = _bound_enhancement_items(response.get("strategic_recommendations"), included)
-    caveats = _string_list(response.get("caveats"))
-    caveats.extend(f"未绑定证据，需复核：{item}" for item in [*unbound_summary, *unbound_recommendations])
-    if not executive_summary and not recommendations and not caveats:
+def _format_report_enhancement(structured_report: dict) -> str:
+    executive_summary = structured_report.get("executive_summary", [])
+    opportunities = structured_report.get("strategic_opportunities", [])
+    limitations = structured_report.get("limitations", [])
+    if not executive_summary and not opportunities and not limitations:
         return ""
     lines = ["## 结构化综合摘要"]
     if executive_summary:
-        lines.extend(f"- {item}" for item in executive_summary)
-    if recommendations:
+        lines.extend(f"- {_structured_item_markdown(item)}" for item in executive_summary)
+    if opportunities:
         lines.extend(["", "## 结构化建议"])
-        lines.extend(f"- {item}" for item in recommendations)
-    if caveats:
+        lines.extend(f"- {_structured_item_markdown(item)}" for item in opportunities)
+    if limitations:
         lines.extend(["", "## 结构化注意事项"])
-        lines.extend(f"- {item}" for item in caveats)
+        lines.extend(f"- {item}" for item in limitations)
     return "\n".join(lines)
 
 
-def _bound_enhancement_items(value, included: list[Claim]) -> tuple[list[str], list[str]]:
-    if not isinstance(value, list):
-        return [], []
+def _structured_item_markdown(item: dict) -> str:
+    refs = f"（依据：{', '.join(item['claim_ids'][:3])}；证据：{', '.join(item['evidence_ids'][:4])}）"
+    return f"{item['text']}{refs}"
+
+
+def _structured_report_data(response: dict, included: list[Claim], products: list[str]) -> dict:
+    if not isinstance(response, dict):
+        return {}
     claim_by_id = {claim.claim_id: claim for claim in included if claim.supporting_evidence}
     evidence_to_claim = {
         evidence_id: claim
-        for claim in included
+        for claim in claim_by_id.values()
         for evidence_id in claim.supporting_evidence
     }
-    bound: list[str] = []
-    unbound: list[str] = []
-    for raw in value[:8]:
-        text = ""
-        claim_ids: list[str] = []
-        evidence_ids: list[str] = []
-        if isinstance(raw, dict):
-            text = str(raw.get("text") or raw.get("summary") or raw.get("recommendation") or "").strip()
-            claim_ids = [str(item).strip() for item in raw.get("claim_ids", []) if str(item).strip()]
-            evidence_ids = [str(item).strip() for item in raw.get("evidence_ids", []) if str(item).strip()]
-        else:
-            text = str(raw).strip()
-            claim_ids = []
-            evidence_ids = []
 
-        valid_claim_ids = [claim_id for claim_id in claim_ids if claim_id in claim_by_id]
-        valid_evidence_ids = [
-            evidence_id
-            for evidence_id in evidence_ids
-            if evidence_id in evidence_to_claim
-            and (not valid_claim_ids or evidence_to_claim[evidence_id].claim_id in valid_claim_ids)
+    def references(raw: dict) -> tuple[list[str], list[str]]:
+        claim_ids = [str(item).strip() for item in raw.get("claim_ids", []) if str(item).strip() in claim_by_id]
+        evidence_ids = [
+            str(item).strip()
+            for item in raw.get("evidence_ids", [])
+            if str(item).strip() in evidence_to_claim
+            and (not claim_ids or evidence_to_claim[str(item).strip()].claim_id in claim_ids)
         ]
-        if not text:
+        if not claim_ids and evidence_ids:
+            claim_ids = sorted({evidence_to_claim[item].claim_id for item in evidence_ids})
+        if not evidence_ids and claim_ids:
+            evidence_ids = [item for claim_id in claim_ids for item in claim_by_id[claim_id].supporting_evidence[:2]]
+        return claim_ids, evidence_ids
+
+    def items(value) -> list[dict]:
+        output = []
+        for raw in value[:8] if isinstance(value, list) else []:
+            if not isinstance(raw, dict):
+                continue
+            text = str(raw.get("text") or "").strip()
+            claim_ids, evidence_ids = references(raw)
+            if not text or not claim_ids or not evidence_ids:
+                continue
+            confidence = raw.get("confidence") if raw.get("confidence") in {"low", "medium", "high"} else None
+            product = str(raw.get("product") or "").strip()
+            output.append({
+                "text": text,
+                "claim_ids": claim_ids,
+                "evidence_ids": evidence_ids,
+                "confidence": confidence,
+                "product": product if product in products else "",
+            })
+        return output
+
+    def highlight(value) -> dict | None:
+        if not isinstance(value, dict):
+            return None
+        title = str(value.get("title") or "").strip()
+        body = str(value.get("body") or "").strip()
+        claim_ids, evidence_ids = references(value)
+        if not title or not claim_ids or not evidence_ids:
+            return None
+        return {
+            "title": title,
+            "body": body,
+            "claim_ids": claim_ids,
+            "evidence_ids": evidence_ids,
+            "confidence": value.get("confidence") if value.get("confidence") in {"low", "medium", "high"} else None,
+        }
+
+    highlights = response.get("decision_highlights") if isinstance(response.get("decision_highlights"), dict) else {}
+    matrix = []
+    for raw in response.get("comparison_matrix", [])[:12] if isinstance(response.get("comparison_matrix"), list) else []:
+        if not isinstance(raw, dict):
             continue
-        if not valid_claim_ids and not valid_evidence_ids:
-            unbound.append(text)
-            continue
-        if not valid_claim_ids:
-            valid_claim_ids = sorted({evidence_to_claim[evidence_id].claim_id for evidence_id in valid_evidence_ids})
-        if not valid_evidence_ids:
-            valid_evidence_ids = [evidence_id for claim_id in valid_claim_ids for evidence_id in claim_by_id[claim_id].supporting_evidence[:2]]
-        refs = f"（依据：{', '.join(valid_claim_ids[:3])}；证据：{', '.join(valid_evidence_ids[:4])}）"
-        bound.append(f"{text}{refs}")
-    return bound, unbound
+        dimension = str(raw.get("dimension") or "").strip()
+        values = raw.get("values") if isinstance(raw.get("values"), dict) else {}
+        mapped_values = {product: (str(values[product]).strip() or None) if values.get(product) is not None else None for product in products}
+        claim_ids, evidence_ids = references(raw)
+        if dimension and any(mapped_values.values()) and claim_ids and evidence_ids:
+            matrix.append({"dimension": dimension, "values": mapped_values, "claim_ids": claim_ids, "evidence_ids": evidence_ids})
+
+    return {
+        "executive_summary": items(response.get("executive_summary")),
+        "decision_highlights": {
+            "strongest_advantage": highlight(highlights.get("strongest_advantage")),
+            "biggest_risk": highlight(highlights.get("biggest_risk")),
+            "recommended_direction": highlight(highlights.get("recommended_direction")),
+        },
+        "comparison_matrix": matrix,
+        "key_insights": items(response.get("key_insights")),
+        "strategic_opportunities": items(response.get("strategic_opportunities")),
+        "limitations": _string_list(response.get("limitations")),
+    }
 
 
 def _string_list(value) -> list[str]:

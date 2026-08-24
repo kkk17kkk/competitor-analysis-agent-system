@@ -2,23 +2,10 @@ import { getTask } from "../../api/client";
 import { toEvidenceViewModel } from "./evidenceAdapter";
 import { toReviewViewModel } from "./reviewAdapter";
 
-const SECTION_KEYS = {
-  summary: ["executive_summary", "structured_summary"],
-  insights: ["differentiated_insights"],
-};
-
-const CLAIM_TYPE_LABELS = {
-  agent_capability: "Agent capability",
-  comparative_browser_interaction: "Browser interaction",
-  comparative_feature: "Feature comparison",
-  comparative_positioning: "Positioning",
-  feature: "Features",
-  positioning: "Positioning",
-  pricing: "Pricing",
-  security: "Security",
-  security_risk: "Security risk",
-  target_user: "Target user",
-  third_party_context: "Third-party context",
+const HIGHLIGHT_PRESENTATION = {
+  strongest_advantage: { label: "Strongest advantage", icon: "icon-advantage-trophy.svg", tone: "success" },
+  biggest_risk: { label: "Biggest risk", icon: "icon-risk-alert-shield.svg", tone: "danger" },
+  recommended_direction: { label: "Recommended direction", icon: "icon-direction-compass.svg", tone: "lilac" },
 };
 
 export async function loadReportViewModel(taskId) {
@@ -39,11 +26,8 @@ export function toReportViewModel(payload) {
   const result = payload?.task ? payload : null;
   const task = result?.task || payload || null;
   const report = result?.report || null;
-  const claims = Array.isArray(result?.claims) ? result.claims : [];
   const sections = Array.isArray(report?.sections) ? report.sections : [];
   const config = task?.config || {};
-  const products = [config.target_product, ...(config.competitors || [])].filter(Boolean);
-  const includedClaims = claims.filter((claim) => claim.included_in_report);
   const openTickets = Array.isArray(result?.review_tickets)
     ? result.review_tickets.filter((ticket) => !["resolved", "dismissed"].includes(ticket.status)).length
     : null;
@@ -59,11 +43,12 @@ export function toReportViewModel(payload) {
     sourceCount: Array.isArray(result?.sources) ? result.sources.length : null,
     evidenceCoverage: percentageOrNull(report?.evidence_coverage_rate),
     openReviews: openTickets,
-    summary: sectionText(sections, SECTION_KEYS.summary),
-    highlights: [],
-    matrix: mapComparisonMatrix(includedClaims, products),
-    insights: sectionText(sections, SECTION_KEYS.insights).map(mapGeneratedInsight),
-    opportunities: Array.isArray(report?.swot?.opportunities) ? unique(report.swot.opportunities) : [],
+    summary: structuredItems(report?.executive_summary).map((item) => item.text),
+    highlights: mapHighlights(report?.decision_highlights),
+    matrix: mapComparisonMatrix(report?.comparison_matrix, [config.target_product, ...(config.competitors || [])].filter(Boolean)),
+    insights: structuredItems(report?.key_insights).map(mapGeneratedInsight),
+    opportunities: structuredItems(report?.strategic_opportunities).map((item) => item.text),
+    limitations: Array.isArray(report?.limitations) ? report.limitations.filter(Boolean) : [],
     trust: mapTrust(result?.trust_summary, report),
     sections: sections.map((section) => ({
       id: section.section_id || null,
@@ -76,35 +61,44 @@ export function toReportViewModel(payload) {
   };
 }
 
-function mapComparisonMatrix(claims, products) {
-  const grouped = new Map();
-  for (const claim of claims) {
-    if (!claim.claim_type || !claim.product || !products.includes(claim.product)) continue;
-    if (!grouped.has(claim.claim_type)) grouped.set(claim.claim_type, new Map());
-    const byProduct = grouped.get(claim.claim_type);
-    const values = byProduct.get(claim.product) || [];
-    values.push(claim.claim);
-    byProduct.set(claim.product, values);
-  }
+function mapComparisonMatrix(rows, products) {
   return {
     columns: products,
-    rows: [...grouped.entries()].map(([claimType, byProduct]) => ({
-      dimension: CLAIM_TYPE_LABELS[claimType] || displayLabel(claimType),
-      values: Object.fromEntries(products.map((product) => [product, byProduct.get(product)?.join(" ") || null])),
-    })),
+    rows: Array.isArray(rows) ? rows.filter((row) => row?.dimension && row?.values).map((row) => ({
+      dimension: row.dimension,
+      values: Object.fromEntries(products.map((product) => [product, row.values[product] || null])),
+    })) : [],
   };
 }
 
-function mapGeneratedInsight(text) {
+function mapGeneratedInsight(item) {
   return {
     id: null,
-    text,
-    product: null,
-    confidence: null,
+    text: item.text,
+    product: item.product || null,
+    confidence: item.confidence ? displayLabel(item.confidence) : null,
     status: null,
     icon: "icon-insight-trend.svg",
     tone: "info",
   };
+}
+
+function mapHighlights(value) {
+  if (!value || typeof value !== "object") return [];
+  return Object.entries(HIGHLIGHT_PRESENTATION).flatMap(([key, presentation]) => {
+    const item = value[key];
+    if (!item?.title) return [];
+    return [{
+      ...presentation,
+      title: item.title,
+      body: item.body || null,
+      confidence: item.confidence ? `${displayLabel(item.confidence)} confidence` : null,
+    }];
+  });
+}
+
+function structuredItems(value) {
+  return Array.isArray(value) ? value.filter((item) => item?.text) : [];
 }
 
 function mapTrust(trust, report) {
@@ -120,20 +114,6 @@ function mapTrust(trust, report) {
   };
 }
 
-function sectionText(sections, keys) {
-  const section = keys.map((key) => sections.find((item) => item.section_key === key)).find(Boolean);
-  if (!section) return [];
-  return markdownToDisplayItems(section.markdown).filter((item) => item !== section.title);
-}
-
-export function markdownToDisplayItems(markdown) {
-  if (!markdown) return [];
-  return markdown
-    .split(/\r?\n/)
-    .map((line) => line.replace(/^#{1,6}\s+/, "").replace(/^[-*]\s+/, "").trim())
-    .filter(Boolean);
-}
-
 function displayLabel(value) {
   return String(value).replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
@@ -145,8 +125,4 @@ function numberOrNull(value) {
 function percentageOrNull(value) {
   const number = numberOrNull(value);
   return number === null ? null : Math.round(number * 100);
-}
-
-function unique(values) {
-  return [...new Set(values.filter(Boolean))];
 }
