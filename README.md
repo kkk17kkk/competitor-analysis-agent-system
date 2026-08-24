@@ -11,9 +11,9 @@ EvidenceGraph 把“搜索—判断—补证—报告”组织成一个面向研
 ![License](https://img.shields.io/badge/License-MIT-111111?style=flat-square)
 
 ## Demo
-
 - [Live Demo](https://competitor-analysis-agent-system-two.vercel.app/)
 - [Sample Report](https://competitor-analysis-agent-system-two.vercel.app/reports/demo)
+<img width="2496" height="1150" alt="image" src="https://github.com/user-attachments/assets/fe23b8fd-e62b-4513-b751-6a0d17af9e68" />
 
 - **Demo mode**：`/reports/demo` 使用明确标记的展示样例，用于快速理解报告体验。
 - **Backend mode**：Overview、New Research、Running、Report、Evidence 与 Audit 只渲染真实 API 数据；字段缺失时显示 unavailable，不生成替代结论。
