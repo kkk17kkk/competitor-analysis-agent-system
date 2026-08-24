@@ -10,6 +10,12 @@ EvidenceGraph 把“搜索—判断—补证—报告”组织成一个面向研
 ![LangGraph](https://img.shields.io/badge/LangGraph-0.2.60-5F7DF2?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-111111?style=flat-square)
 
+🚀 [Live Demo](https://competitor-analysis-agent-system-two.vercel.app/) · 📖 [Sample Report](https://competitor-analysis-agent-system-two.vercel.app/reports/demo)
+
+<img src="assets/evidencegraph-overview.png" alt="EvidenceGraph Overview workspace" />
+
+真实 Provider 分析需要在本地或私有部署中配置凭据。密钥只保存在服务端环境中。
+
 ## Summary
 
 | Capability | Description |
@@ -20,17 +26,6 @@ EvidenceGraph 把“搜索—判断—补证—报告”组织成一个面向研
 | 🧩 Skill Layer | 支持导入 `SKILL.md`，把研究方法与产品分析框架注入对应 Prompt slot。 |
 | 📊 Structured Reports | 输出 Comparison Matrix、决策洞察、证据覆盖、Limitations 以及 Evidence / Audit 视图。 |
 | 🖥️ Product Workspace | 提供 Overview、New Research、Running、Report、Evidence 与 Audit 的完整产品路径。 |
-
-## Demo
-<img src="assets/evidencegraph-overview.png" alt="EvidenceGraph Overview workspace" />
-
-- [Live Demo](https://competitor-analysis-agent-system-two.vercel.app/)
-- [Sample Report](https://competitor-analysis-agent-system-two.vercel.app/reports/demo)
-
-- **Demo mode**：`/reports/demo` 使用明确标记的展示样例，用于快速理解报告体验。
-- **Backend mode**：Overview、New Research、Running、Report、Evidence 与 Audit 只渲染真实 API 数据；字段缺失时显示 unavailable，不生成替代结论。
-
-真实 Provider 分析需要在本地或私有部署中配置凭据。密钥只保存在服务端环境中。
 
 ## Overview
 
