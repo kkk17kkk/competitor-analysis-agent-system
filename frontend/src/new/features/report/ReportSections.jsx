@@ -5,19 +5,19 @@ import { Illustration } from "../../components/Illustration";
 export function ExecutiveSummary({ report }) {
   return (
     <Card className="eg-executive-summary">
-      <div className="eg-summary-copy"><span className="eg-kicker">Executive summary</span>{report.summary.length ? report.summary.map((paragraph) => <p key={paragraph}>{paragraph}</p>) : <EmptyText label="No generated executive summary available yet." />}</div>
+      <div className="eg-summary-copy"><span className="eg-kicker">Executive summary</span>{report.summary.length ? report.summary.map((paragraph) => <p key={paragraph}>{paragraph}</p>) : <EmptyText label="Unavailable. No generated executive summary is available yet." />}</div>
       <Illustration name="report-summary-card.svg" alt="Illustrated evidence report" />
     </Card>
   );
 }
 
 export function DecisionHighlights({ highlights }) {
-  if (!highlights.length) return <EmptySection label="Decision highlights unavailable" body="No generated decision highlights are available yet." />;
+  if (!highlights.length) return <EmptySection label="Decision highlights unavailable" body="Additional research is required before decision highlights can be generated." />;
   return <div className="eg-highlight-grid">{highlights.map((item) => <Card key={item.label} className="eg-highlight"><Illustration name={item.icon} alt="" decorative /><div><span>{item.label}</span><h3 className={`text-${item.tone}`}>{item.title}</h3>{item.body && <p>{item.body}</p>}{item.confidence && <Badge tone={item.tone}>{item.confidence}</Badge>}</div></Card>)}</div>;
 }
 
 export function ComparisonMatrix({ matrix }) {
-  if (!matrix.rows.length || !matrix.columns.length) return <EmptySection label="Comparison matrix unavailable" body="No evidence-backed comparison fields are available yet." />;
+  if (!matrix.rows.length || !matrix.columns.length) return <EmptySection label="Comparison matrix unavailable" body="Additional research is required to build an evidence-backed comparison." />;
   return (
     <section className="eg-report-section">
       <header><div><span className="eg-kicker">Competitive comparison</span><h2>How the products differ</h2></div><p>Qualitative findings are shown as evidence-backed statements, not artificial scores.</p></header>
@@ -34,7 +34,7 @@ export function KeyInsights({ insights }) {
 }
 
 export function StrategicOpportunities({ items }) {
-  if (!items.length) return <EmptySection label="Strategic opportunities unavailable" body="No generated strategic opportunity is available yet." />;
+  if (!items.length) return <EmptySection label="Strategic opportunities unavailable" body="Additional research is required before strategic opportunities can be generated." />;
   return (
     <Card className="eg-opportunities"><div><span className="eg-kicker">Strategic opportunities</span><h2>Recommended next actions</h2><ul>{items.map((item) => <li key={item}>{item}</li>)}</ul></div><Illustration name="report-strategic-target.svg" alt="Strategic target illustration" /></Card>
   );

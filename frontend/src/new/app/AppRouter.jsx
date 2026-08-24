@@ -6,18 +6,14 @@ import { ReportDetailPage } from "../pages/ReportDetailPage";
 import { DemoReportDetailPage } from "../pages/DemoReportDetailPage";
 import { ReportsPage } from "../pages/ReportsPage";
 import { SettingsPage } from "../pages/SettingsPage";
+import { RunningPage } from "../pages/RunningPage";
 
-export const prototypePaths = ["/overview", "/research/new", "/reports", "/reports/demo", "/settings"];
-
-export function isPrototypePath(pathname) {
-  return prototypePaths.includes(pathname) || pathname.startsWith("/reports/");
-}
-
-export function StaticPrototypeApp() {
-  const [path, setPath] = useState(window.location.pathname);
+export function EvidenceGraphApp() {
+  const [path, setPath] = useState(() => window.location.pathname === "/" ? "/overview" : window.location.pathname);
   useEffect(() => {
     document.title = "EvidenceGraph · Competitive Research";
-    const onPopState = () => setPath(window.location.pathname);
+    if (window.location.pathname === "/") window.history.replaceState({}, "", "/overview");
+    const onPopState = () => setPath(window.location.pathname === "/" ? "/overview" : window.location.pathname);
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
@@ -28,7 +24,8 @@ export function StaticPrototypeApp() {
     window.scrollTo({ top: 0, behavior: "instant" });
   }
   let page = <OverviewPage navigate={navigate} />;
-  if (path === "/research/new") page = <NewResearchPage />;
+  if (path === "/research/new") page = <NewResearchPage navigate={navigate} />;
+  if (path.startsWith("/research/running/")) page = <RunningPage taskId={decodeURIComponent(path.slice("/research/running/".length))} navigate={navigate} />;
   if (path === "/reports") page = <ReportsPage navigate={navigate} />;
   if (path === "/reports/demo") page = <DemoReportDetailPage />;
   if (path.startsWith("/reports/") && path !== "/reports/demo") page = <ReportDetailPage taskId={decodeURIComponent(path.slice("/reports/".length))} />;

@@ -21,6 +21,7 @@ export function toResearchSummary(taskPayload) {
       ? tickets.filter((ticket) => !CLOSED_TICKET_STATUSES.has(ticket.status)).length
       : null,
     sourceCount: Array.isArray(result?.sources) ? result.sources.length : null,
+    adaptiveRuns: numberOrNull(result?.manifest?.total_reruns),
   };
 }
 

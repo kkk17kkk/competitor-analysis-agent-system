@@ -84,11 +84,22 @@
 .eg-metric span { color: var(--eg-text); font-size: 13px; font-weight: 650; }
 .eg-metric small { color: var(--eg-muted); font-size: 11px; }
 .eg-overview-grid { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(300px, .75fr); gap: 24px; }
-.eg-recent, .eg-how { padding: 24px; border: 1px solid var(--eg-border); border-radius: var(--eg-radius-lg); background: var(--eg-surface); }
+.eg-recent, .eg-how, .eg-attention-queue { padding: 24px; border: 1px solid var(--eg-border); border-radius: var(--eg-radius-lg); background: var(--eg-surface); }
+.eg-overview-side { display: grid; align-content: start; gap: 18px; }
+.eg-attention-queue > button { width: 100%; display: grid; grid-template-columns: 36px minmax(0, 1fr) 12px; align-items: center; gap: 10px; padding: 13px 0; border: 0; border-top: 1px solid var(--eg-border); background: transparent; color: var(--eg-text); cursor: pointer; text-align: left; }
+.eg-attention-queue > button img { width: 34px; height: 34px; }
+.eg-attention-queue > button span { display: grid; }
+.eg-attention-queue > button small, .eg-attention-empty p, .eg-attention-queue > p { color: var(--eg-muted); font-size: 11px; }
+.eg-attention-empty { margin-top: 16px; padding: 14px; border-radius: var(--eg-radius-sm); background: var(--eg-surface-subtle); }
+.eg-attention-empty p { margin: 2px 0 0; }
 .eg-research-list { margin-top: 20px; }
 .eg-research-list > button { width: 100%; min-height: 88px; display: grid; grid-template-columns: 48px minmax(0, 1fr) 112px 88px 16px; gap: 14px; align-items: center; padding: 14px 8px; border: 0; border-top: 1px solid var(--eg-border); background: transparent; text-align: left; cursor: pointer; }
 .eg-research-list > button:hover { background: var(--eg-surface-subtle); }
 .eg-research-list > button > img { width: 42px; height: 42px; }
+.eg-overview-state { margin-top: 20px; padding: 24px; border: 1px dashed var(--eg-border-strong); border-radius: var(--eg-radius-md); background: var(--eg-surface-subtle); }
+.eg-overview-state h3 { margin-bottom: 4px; }
+.eg-overview-state p { margin-bottom: 14px; }
+.eg-overview-state--danger { border-color: var(--eg-danger); background: var(--eg-danger-bg); }
 .eg-research-title { min-width: 0; display: grid; }
 .eg-research-title strong { color: var(--eg-ink); }
 .eg-research-title small, .eg-coverage small { color: var(--eg-muted); }
@@ -97,7 +108,7 @@
 .eg-status-text { font-size: 12px; font-weight: 700; }
 .eg-status-text.is-success { color: var(--eg-success); }
 .eg-status-text.is-warning { color: var(--eg-warning); }
-.eg-how > div { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 26px; }
+.eg-how > div { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 26px; }
 .eg-how article { position: relative; padding-top: 8px; text-align: center; }
 .eg-how article > span { position: absolute; top: 0; right: calc(50% - 29px); width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: var(--eg-brand); color: white; font-size: 11px; font-weight: 700; }
 .eg-how img { width: 58px; height: 58px; }
@@ -128,6 +139,7 @@
 .eg-chip-field { min-height: 44px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 6px; border: 1px solid var(--eg-border-strong); border-radius: var(--eg-radius-sm); background: var(--eg-surface); }
 .eg-chip-field button, .eg-suggestions button, .eg-dimensions button { min-height: 32px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--eg-border); border-radius: var(--eg-radius-round); background: var(--eg-surface-subtle); color: var(--eg-text); cursor: pointer; font-size: 12px; }
 .eg-chip-field button { padding: 3px 8px 3px 5px; }
+.eg-chip-field input { width: auto; min-width: 210px; flex: 1 1 210px; min-height: 32px; padding: 3px 8px; border: 0; background: transparent; }
 .eg-chip-field img, .eg-suggestions img { width: 23px; height: 23px; }
 .eg-chip-field button span { color: var(--eg-muted); font-size: 16px; }
 .eg-suggestions, .eg-dimensions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
@@ -135,7 +147,15 @@
 .eg-suggestions button { min-height: 34px; padding: 4px 8px; background: var(--eg-surface); }
 .eg-suggestions button b { margin-left: 2px; color: var(--eg-info); }
 .eg-step-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.eg-assist-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .eg-goal-field textarea { line-height: 1.65; }
+.eg-field-error { margin: 8px 0 0; color: var(--eg-danger) !important; font-size: 12px; }
+.eg-assist-error, .eg-assist-suggestion { margin-top: 12px; padding: 14px; border: 1px solid var(--eg-border); border-radius: var(--eg-radius-md); background: var(--eg-surface); }
+.eg-assist-error { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-color: var(--eg-danger); background: var(--eg-danger-bg); }
+.eg-assist-error p { margin: 0; color: var(--eg-danger); }
+.eg-assist-suggestion > span { display: block; margin-bottom: 5px; color: var(--eg-success); font-size: 11px; font-weight: 700; }
+.eg-assist-suggestion p { margin-bottom: 12px; color: var(--eg-text); white-space: pre-wrap; }
+.eg-assist-suggestion > div { display: flex; flex-wrap: wrap; gap: 8px; }
 .eg-dimensions button { min-height: 30px; padding: 3px 11px; background: var(--eg-success-bg); color: var(--eg-success); }
 .eg-setup-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
 .eg-segmented > div { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--eg-border-strong); border-radius: var(--eg-radius-sm); overflow: hidden; background: var(--eg-surface); }
@@ -145,6 +165,7 @@
 .eg-advanced-toggle { width: 100%; min-height: 50px; display: flex; align-items: center; gap: 10px; margin-top: 16px; padding: 0 12px; border: 1px solid var(--eg-border); border-radius: var(--eg-radius-sm); background: var(--eg-surface); color: var(--eg-ink); cursor: pointer; text-align: left; }
 .eg-advanced-toggle small { color: var(--eg-muted); }
 .eg-advanced-panel { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; padding: 16px 12px 4px; }
+.eg-advanced-panel--research { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .eg-research-summary { position: fixed; z-index: 20; left: calc(256px + clamp(28px, 4vw, 64px)); right: clamp(28px, 4vw, 64px); bottom: 18px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 14px 18px; border: 1px solid var(--eg-border); border-radius: var(--eg-radius-lg); background: var(--eg-surface); box-shadow: var(--eg-shadow-raised); }
 .eg-research-summary > div:first-child > span { display: block; margin-bottom: 7px; color: var(--eg-ink); font-size: 12px; font-weight: 700; }
 .eg-summary-items { display: flex; gap: 24px; }
@@ -284,6 +305,47 @@
 .eg-settings-grid img { width: 48px; height: 48px; }
 .eg-settings-grid h2 { margin-bottom: 5px; font-size: 17px; }
 .eg-settings-grid p { min-height: 72px; font-size: 12px; }
+.eg-running-page { max-width: 1160px; min-height: 100dvh; }
+.eg-running-loading { min-height: 60vh; display: grid; place-items: center; color: var(--eg-muted); }
+.eg-running-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 32px; margin-bottom: 28px; }
+.eg-running-header h1 { max-width: 760px; margin: 4px 0 6px; font-size: clamp(30px, 4vw, 46px); }
+.eg-running-status { display: flex; align-items: center; gap: 12px; color: var(--eg-muted); font-size: 13px; white-space: nowrap; }
+.eg-progress-card { padding: 28px; box-shadow: var(--eg-shadow-card); }
+.eg-progress-track { height: 5px; overflow: hidden; border-radius: var(--eg-radius-round); background: var(--eg-surface-subtle); }
+.eg-progress-track span { display: block; height: 100%; border-radius: inherit; background: var(--eg-brand); transition: width var(--eg-ease); }
+.eg-progress-steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin: 24px 0 0; padding: 0; list-style: none; }
+.eg-progress-steps li { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 10px; color: var(--eg-muted); }
+.eg-progress-steps li > span { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--eg-border-strong); border-radius: 50%; background: var(--eg-surface); font-size: 12px; font-weight: 750; }
+.eg-progress-steps li strong, .eg-progress-steps li small { display: block; }
+.eg-progress-steps li strong { color: inherit; font-size: 13px; }
+.eg-progress-steps li small { margin-top: 3px; font-size: 10px; line-height: 1.35; }
+.eg-progress-steps .is-completed { color: var(--eg-success); }
+.eg-progress-steps .is-completed > span { border-color: var(--eg-success); background: var(--eg-success-bg); }
+.eg-progress-steps .is-current { color: var(--eg-ink); }
+.eg-progress-steps .is-current > span { border-color: var(--eg-brand); background: var(--eg-danger-bg); color: var(--eg-brand); box-shadow: 0 0 0 5px color-mix(in srgb, var(--eg-brand), transparent 88%); }
+.eg-progress-steps .is-failed { color: var(--eg-danger); }
+.eg-progress-steps .is-failed > span { border-color: var(--eg-danger); background: var(--eg-danger-bg); }
+.eg-running-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 18px 0; border: 1px solid var(--eg-border); border-radius: var(--eg-radius-lg); background: var(--eg-surface); }
+.eg-running-metrics div { display: grid; gap: 2px; padding: 20px 24px; border-left: 1px solid var(--eg-border); }
+.eg-running-metrics div:first-child { border-left: 0; }
+.eg-running-metrics strong { color: var(--eg-ink); font-size: 24px; }
+.eg-running-metrics span { color: var(--eg-muted); font-size: 12px; }
+.eg-activity-card { padding: 26px 28px; }
+.eg-activity-card header { display: flex; align-items: center; gap: 8px; }
+.eg-activity-card h2 { font-size: 18px; }
+.eg-live-dot { width: 8px; height: 8px; display: inline-block; flex: 0 0 auto; border-radius: 50%; background: var(--eg-success); box-shadow: 0 0 0 5px var(--eg-success-bg); }
+.eg-activity-card ol { display: grid; gap: 0; margin: 20px 0 0; padding: 0; list-style: none; }
+.eg-activity-card li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; padding: 10px 0; color: var(--eg-muted); }
+.eg-activity-card li > span { width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: var(--eg-border-strong); }
+.eg-activity-card li > span.is-current { background: var(--eg-info); box-shadow: 0 0 0 4px var(--eg-info-bg); }
+.eg-activity-card li strong, .eg-activity-card li small { display: block; }
+.eg-activity-card li strong { color: var(--eg-text); font-size: 13px; }
+.eg-activity-card li small { margin-top: 2px; font-size: 10px; }
+.eg-attention-panel { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 18px; padding: 18px 20px; border: 1px solid color-mix(in srgb, var(--eg-warning), transparent 65%); border-radius: var(--eg-radius-lg); background: var(--eg-warning-bg); }
+.eg-attention-panel--failed { border-color: color-mix(in srgb, var(--eg-danger), transparent 65%); background: var(--eg-danger-bg); }
+.eg-attention-panel p { margin-top: 3px; font-size: 12px; }
+.eg-attention-panel > div:last-child { display: flex; gap: 8px; }
+.eg-running-note { display: flex; align-items: center; gap: 10px; padding: 18px 4px; color: var(--eg-muted); font-size: 11px; }
 
 @media (max-width: 1199px) {
   .eg-app { grid-template-columns: 220px minmax(0, 1fr); }
@@ -305,6 +367,12 @@
   .eg-report-layout { grid-template-columns: 1fr; }
   .eg-report-layout > aside { grid-template-columns: repeat(2, minmax(0, 1fr)); position: static; }
   .eg-highlight-grid { grid-template-columns: 1fr; }
+  .eg-running-header, .eg-attention-panel { align-items: flex-start; flex-direction: column; }
+  .eg-progress-steps { grid-template-columns: 1fr; }
+  .eg-progress-steps li { grid-template-columns: 32px minmax(0, 1fr); }
+  .eg-running-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .eg-running-metrics div:nth-child(3) { border-left: 0; border-top: 1px solid var(--eg-border); }
+  .eg-running-metrics div:nth-child(4) { border-top: 1px solid var(--eg-border); }
   .eg-highlight p { min-height: 0; }
   .eg-executive-summary { grid-template-columns: minmax(0, 1fr) 180px; }
   .eg-reports-head, .eg-report-row { grid-template-columns: minmax(300px, 1.5fr) 170px 100px 110px 16px; gap: 12px; }
