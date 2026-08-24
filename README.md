@@ -12,12 +12,10 @@ EvidenceGraph 把“搜索—判断—补证—报告”组织成一个面向研
 
 ## Demo
 
-- [Live Demo — EvidenceGraph Workspace](https://competitor-analysis-agent-system-two.vercel.app/)
-- [Sample Report — product capability showcase](https://competitor-analysis-agent-system-two.vercel.app/reports/demo)
+- [Live Demo](https://competitor-analysis-agent-system-two.vercel.app/)
+- [Sample Report](https://competitor-analysis-agent-system-two.vercel.app/reports/demo)
 
-线上入口包含两种清晰的数据边界：
-
-- **Demo mode**：`/reports/demo` 使用明确标记的展示样例，用于快速理解报告体验，不代表后端运行结果。
+- **Demo mode**：`/reports/demo` 使用明确标记的展示样例，用于快速理解报告体验。
 - **Backend mode**：Overview、New Research、Running、Report、Evidence 与 Audit 只渲染真实 API 数据；字段缺失时显示 unavailable，不生成替代结论。
 
 真实 Provider 分析需要在本地或私有部署中配置凭据。密钥只保存在服务端环境中。
@@ -76,16 +74,6 @@ Search / LLM / optional XHS providers
     ↓
 SQLite task, evidence, review and report persistence
 ```
-
-## Frontend Design
-
-新版前端从 developer console 收口为 **Editorial Evidence Workspace**：
-
-- Overview 只呈现真实任务、可计算指标与 review attention。
-- New Research 使用渐进式三步表单，复杂配置折叠到 Advanced options。
-- Running 将 SSE 事件映射为研究阶段、活动与业务指标。
-- Report 将结构化输出分为 Report、Evidence、Audit 三层。
-- Sample Report 是唯一允许 showcase data 的路由，并有醒目的 Demo 标识。
 
 ## Tech Stack
 
@@ -197,14 +185,6 @@ npm run build
 python scripts/smoke_live_providers.py --require-live
 python scripts/smoke_xhs_mcp.py --autostart --require-login --require-search
 ```
-
-## Limitations
-
-- 真实研究质量依赖搜索与 LLM Provider 的可用性、覆盖面和速率限制。
-- 社交平台来源受登录、区域、平台策略和内容可访问性影响，不保证持续可用。
-- 线上 Demo 适合展示产品与静态 Sample Report；未配置私有凭据时不代表生产级 live research 环境。
-- SSE 不提供服务端历史事件重放；刷新 Running 页面后会查询任务状态并继续跟踪，但不会重复启动 workflow。
-- 自动生成内容仍应结合 Evidence、Review Ticket 与 Limitations 进行人工复核后用于重要决策。
 
 ## License
 
