@@ -1,6 +1,6 @@
 # EvidenceGraph
 
-**AI-native competitive intelligence research workspace powered by a multi-agent workflow and evidence-grounded analysis.**
+**由多智能体工作流、证据验证与自适应复核驱动的 AI 竞品情报研究工作台。**
 
 EvidenceGraph 把“搜索—判断—补证—报告”组织成一个面向研究者的产品流程。用户只需定义目标产品、竞品和研究目标；系统负责多源采集、Claim / Evidence 构建、Critic 复核、Review Ticket 定向补证，并交付可追溯的结构化决策报告。
 
@@ -10,10 +10,31 @@ EvidenceGraph 把“搜索—判断—补证—报告”组织成一个面向研
 ![LangGraph](https://img.shields.io/badge/LangGraph-0.2.60-5F7DF2?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-111111?style=flat-square)
 
+<p align="center">
+  <img src="assets/evidencegraph-overview.png" width="49%" alt="EvidenceGraph Overview workspace" />
+  <img src="assets/evidencegraph-new-research.png" width="49%" alt="EvidenceGraph New Research workflow" />
+</p>
+
+## Summary
+
+| Capability | Description |
+| --- | --- |
+| 🔍 Multi-Agent Research | 使用 LangGraph shared state 协调规划、检索、证据抽取、分析、复核与报告生成。 |
+| 🛡️ Evidence Verification | 保留 Claim—Evidence—Source 关系，并阻断、降级或排除缺少支撑的结论。 |
+| 🔄 Adaptive Review Loop | Critic 生成 Review Ticket，再按证据缺口定向分派补采或复核任务。 |
+| 🧩 Skill Layer | 支持导入 `SKILL.md`，把研究方法与产品分析框架注入对应 Prompt slot。 |
+| 📊 Structured Reports | 输出 Comparison Matrix、决策洞察、证据覆盖、Limitations 以及 Evidence / Audit 视图。 |
+| 🖥️ Product Workspace | 提供 Overview、New Research、Running、Report、Evidence 与 Audit 的完整产品路径。 |
+
 ## Demo
 - [Live Demo](https://competitor-analysis-agent-system-two.vercel.app/)
 - [Sample Report](https://competitor-analysis-agent-system-two.vercel.app/reports/demo)
 <img width="2496" height="1150" alt="image" src="https://github.com/user-attachments/assets/fe23b8fd-e62b-4513-b751-6a0d17af9e68" />
+
+- [Live Demo — EvidenceGraph Workspace](https://competitor-analysis-agent-system-two.vercel.app/)
+- [Sample Report — product capability showcase](https://competitor-analysis-agent-system-two.vercel.app/reports/demo)
+
+线上入口包含两种清晰的数据边界：
 
 - **Demo mode**：`/reports/demo` 使用明确标记的展示样例，用于快速理解报告体验。
 - **Backend mode**：Overview、New Research、Running、Report、Evidence 与 Audit 只渲染真实 API 数据；字段缺失时显示 unavailable，不生成替代结论。
@@ -26,39 +47,19 @@ EvidenceGraph 把“搜索—判断—补证—报告”组织成一个面向研
 
 产品界面不会向普通用户暴露 node、tool call、provider log 或 token，而是将工作流翻译为五个研究阶段：规划研究、采集来源、构建证据、验证洞察、生成报告。底层仍保留完整 trace 与 run manifest，供审计和工程排查使用。
 
-## Features
-
-### 1. Research Planning
-
-将目标产品、竞品、研究目标、证据策略和受众映射到既有 TaskConfig；支持竞品推荐与研究目标润色，不静默覆盖用户输入。
-
-### 2. Multi-agent Research Workflow
-
-LangGraph 协调 Planning、Research、Evidence Extraction、Analysis、Critic、Review 与 Writer。前端通过 SSE 展示面向用户的实时进度，而不是底层图执行细节。
-
-### 3. Evidence-aware Verification
-
-Claim 必须绑定 Evidence 与 Source。缺少支撑、存在冲突或已经过期的结论会被阻断、降级或排除，Report 不把未知信息包装成确定事实。
-
-### 4. Adaptive Review Loop
-
-Critic 生成 Review Ticket，系统按照缺口定向回到 Research、Interaction、Analyst 或 Reviewer 路径。用户可在 Audit 中补证、解决、降级或标记不可获得。
-
-### 5. Decision-oriented Reports
-
-真实 workflow 输出结构化 Report：Executive Summary、Decision Highlights、Comparison Matrix、Key Insights、Strategic Opportunities、Evidence Coverage 与 Limitations。每个生成项保留 Claim / Evidence 引用。
-
 ## Architecture
+
+下面是用户视角的研究闭环，不代表系统只是线性 pipeline：LangGraph 内部维护 shared state，并通过 conditional routing、Review Ticket 优先级和目标节点动态选择后续执行路径。
 
 ```mermaid
 flowchart TD
     User[User] --> Workspace[Research Workspace]
-    Workspace --> Workflow[LangGraph Agent Workflow]
-    Workflow --> Sources[Source Collection]
+    Workspace --> Workflow[LangGraph Multi-Agent Workflow]
+    Workflow --> Sources[Sources / MCP Tools]
     Sources --> Evidence[Claim and Evidence Construction]
     Evidence --> Verify[Evidence Verification]
-    Verify -->|evidence gap| Review[Adaptive Review Loop]
-    Review --> Sources
+    Verify -->|evidence gap| Review[Review Loop]
+    Review -->|targeted rerun| Workflow
     Verify --> Report[Structured Decision Report]
     Report --> Workspace
 ```
@@ -74,6 +75,50 @@ Search / LLM / optional XHS providers
     ↓
 SQLite task, evidence, review and report persistence
 ```
+
+## Features
+
+### 🔍 Multi-Agent Research Workflow
+
+- 使用 LangGraph `StateGraph` 在 Planner、Research、Evidence、Analyst、Critic、Reviewer 与 Writer 之间共享结构化状态。
+- 通过 conditional edges 决定继续复核、停止循环或进入报告生成，不依赖固定的单向执行链。
+- Review Ticket 的 `target_node` 驱动 Research、Interaction、Analyst 或 Reviewer 的动态任务分派。
+- 前端通过 SSE 将执行过程翻译为研究阶段、活动与指标，不向普通用户展示底层 graph internals。
+
+### 🛡️ Evidence-aware Verification
+
+- Claim 记录 Supporting Evidence，Evidence 继续关联 Source，形成可检查的证据链。
+- Unsupported、uncertain、contradicted、stale 或 downgraded 结论不会被包装成确定事实。
+- 结构化 Report 生成项保留 `claim_ids` 与 `evidence_ids`，前端只渲染已有字段。
+
+### 🔄 Adaptive Review Loop
+
+- Critic 检查证据缺口、冲突与高风险推断，并生成 Review Ticket。
+- Review Ticket 保存目标节点、缺失证据类型、严重程度、重跑次数和受影响产物。
+- targeted rerun 只回到与当前缺口相关的路径；达到循环或重跑上限后保持明确的未解决状态。
+- 用户可以在 Audit 中补证、解决、忽略、降级或标记证据不可获得。
+
+### 🧩 Skill Layer
+
+- 支持从 GitHub 导入 `SKILL.md`，并保存 Skill catalog 与 assignment。
+- `SkillPromptComposer` 按 competitor analysis、pricing、persona、SWOT 等 slot 选择研究方法。
+- Skill 内容用于 Prompt methodology injection，不替代 Evidence gate，也不直接制造报告事实。
+
+### 📊 Structured Decision Reports
+
+- 真实 workflow 输出 Executive Summary、Decision Highlights、Comparison Matrix、Key Insights、Strategic Opportunities、Evidence Coverage 与 Limitations。
+- 同时保留 Feature Tree、Pricing Model、User Persona、SWOT 与 Markdown sections，供完整研究交付和审计使用。
+- Report、Evidence、Audit 三个视图分别承载决策阅读、证据检查与人工复核。
+
+## Product Experience
+
+新版前端从 developer console 转向 **report-centric research workspace**。用户围绕研究任务与报告推进工作，底层 Agent node、provider log、tool call 和 token 信息不会占据主要产品界面。
+
+- Overview 只呈现真实任务、可计算指标与 review attention。
+- New Research 使用渐进式三步表单，将目标产品、竞品、研究目标、证据策略和受众映射到 TaskConfig；竞品推荐与目标润色不会静默覆盖用户输入。
+- Running 将 SSE 事件映射为研究阶段、活动与业务指标。
+- Report 将结构化输出分为 Report、Evidence、Audit 三层，支持 report-centric 阅读、Evidence inspection 与 human review。
+- Sample Report 是唯一允许 showcase data 的路由，并有醒目的 Demo 标识。
 
 ## Tech Stack
 
