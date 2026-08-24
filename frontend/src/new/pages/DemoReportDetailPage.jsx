@@ -1,6 +1,6 @@
 import React from "react";
-import { reportDetail } from "../mock/reports";
-import { evidenceItems, reviewItems } from "../mock/evidence";
+import { reportDetail } from "../demo/reports";
+import { evidenceItems, reviewItems } from "../demo/evidence";
 import { ReportDetailView } from "./ReportDetailPage";
 
 export function DemoReportDetailPage() {
@@ -10,6 +10,7 @@ export function DemoReportDetailPage() {
 function legacyReport(report) {
   return {
     ...report,
+    dataSource: "demo",
     generatedAt: report.generated,
     sourceCount: report.sources,
     evidenceCoverage: report.coverage,

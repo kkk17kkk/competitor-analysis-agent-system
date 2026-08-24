@@ -63,7 +63,7 @@ export function ReportDetailPage({ taskId }) {
   if (!workspace) return null;
   const report = workspace.report;
 
-  return <div className="eg-page eg-report-page"><ReportHeader report={report} /><Tabs tabs={tabs} active={active} onChange={setActive} label="Report sections" />
+  return <div className="eg-page eg-report-page" data-data-source={report.dataSource}><DataModeNotice mode={report.dataSource} /><ReportHeader report={report} /><Tabs tabs={tabs} active={active} onChange={setActive} label="Report sections" />
     {state.error && <p className="eg-action-message" role="alert">{state.error}</p>}
     {active === "report" && <ReportView report={report} />}
     {active === "evidence" && <>{actionMessage && <p className="eg-action-message" role="alert">{actionMessage}</p>}<EvidencePanel claims={workspace.evidence} onMutation={mutateEvidence} busyEvidenceId={busy.evidenceId} /></>}
@@ -73,7 +73,12 @@ export function ReportDetailPage({ taskId }) {
 
 export function ReportDetailView({ report, evidence, reviews }) {
   const [active, setActive] = useState("report");
-  return <div className="eg-page eg-report-page"><ReportHeader report={report} /><Tabs tabs={tabs} active={active} onChange={setActive} label="Report sections" />{active === "report" && <ReportView report={report} />}{active === "evidence" && <EvidencePanel claims={evidence} onMutation={() => {}} busyEvidenceId={null} />}{active === "audit" && <AuditPanel items={reviews} onAction={() => {}} busyTicketId={null} actionMessage="Static demo: actions are not persisted." />}</div>;
+  return <div className="eg-page eg-report-page" data-data-source={report.dataSource}><DataModeNotice mode={report.dataSource} /><ReportHeader report={report} /><Tabs tabs={tabs} active={active} onChange={setActive} label="Report sections" />{active === "report" && <ReportView report={report} />}{active === "evidence" && <EvidencePanel claims={evidence} onMutation={() => {}} busyEvidenceId={null} />}{active === "audit" && <AuditPanel items={reviews} onAction={() => {}} busyTicketId={null} actionMessage="Static demo: actions are not persisted." />}</div>;
+}
+
+function DataModeNotice({ mode }) {
+  if (mode === "demo") return <aside className="eg-demo-notice"><Badge tone="lilac">Sample Report</Badge><div><strong>This is an example report showing EvidenceGraph capabilities.</strong><span>It is showcase data and is not a backend research result.</span></div></aside>;
+  return <div className="eg-backend-mode"><Badge tone="info">Backend data</Badge></div>;
 }
 
 function ReportHeader({ report }) {

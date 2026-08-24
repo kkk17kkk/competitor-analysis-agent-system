@@ -3,8 +3,8 @@ import { toEvidenceViewModel } from "./evidenceAdapter";
 import { toReviewViewModel } from "./reviewAdapter";
 
 const SECTION_KEYS = {
-  summary: ["structured_summary", "decision_summary", "core_findings"],
-  opportunities: ["opportunities", "next_actions", "structured_recommendations"],
+  summary: ["executive_summary", "structured_summary"],
+  insights: ["differentiated_insights"],
 };
 
 const CLAIM_TYPE_LABELS = {
@@ -28,6 +28,7 @@ export async function loadReportViewModel(taskId) {
 export async function loadReportWorkspace(taskId) {
   const payload = await getTask(taskId);
   return {
+    dataSource: "backend",
     report: toReportViewModel(payload),
     evidence: toEvidenceViewModel(payload),
     reviews: toReviewViewModel(payload),
@@ -59,13 +60,10 @@ export function toReportViewModel(payload) {
     evidenceCoverage: percentageOrNull(report?.evidence_coverage_rate),
     openReviews: openTickets,
     summary: sectionText(sections, SECTION_KEYS.summary),
-    highlights: mapHighlights(report?.swot),
+    highlights: [],
     matrix: mapComparisonMatrix(includedClaims, products),
-    insights: includedClaims.map(mapInsight),
-    opportunities: unique([
-      ...(Array.isArray(report?.swot?.opportunities) ? report.swot.opportunities : []),
-      ...sectionText(sections, SECTION_KEYS.opportunities),
-    ]),
+    insights: sectionText(sections, SECTION_KEYS.insights).map(mapGeneratedInsight),
+    opportunities: Array.isArray(report?.swot?.opportunities) ? unique(report.swot.opportunities) : [],
     trust: mapTrust(result?.trust_summary, report),
     sections: sections.map((section) => ({
       id: section.section_id || null,
@@ -76,20 +74,6 @@ export function toReportViewModel(payload) {
       claimIds: Array.isArray(section.claim_ids) ? section.claim_ids : [],
     })),
   };
-}
-
-function mapHighlights(swot) {
-  if (!swot) return [];
-  return [
-    highlight("Strongest advantage", swot.strengths?.[0], "icon-advantage-trophy.svg", "success"),
-    highlight("Biggest risk", swot.threats?.[0], "icon-risk-alert-shield.svg", "danger"),
-    highlight("Recommended direction", swot.opportunities?.[0], "icon-direction-compass.svg", "lilac"),
-  ].filter(Boolean);
-}
-
-function highlight(label, value, icon, tone) {
-  if (!value) return null;
-  return { label, title: value, body: null, confidence: null, icon, tone };
 }
 
 function mapComparisonMatrix(claims, products) {
@@ -111,15 +95,15 @@ function mapComparisonMatrix(claims, products) {
   };
 }
 
-function mapInsight(claim) {
+function mapGeneratedInsight(text) {
   return {
-    id: claim.claim_id || null,
-    text: claim.claim || null,
-    product: claim.product || null,
-    confidence: claim.confidence || null,
-    status: claim.verified_status || null,
-    icon: insightIcon(claim.claim_type),
-    tone: insightTone(claim.verified_status),
+    id: null,
+    text,
+    product: null,
+    confidence: null,
+    status: null,
+    icon: "icon-insight-trend.svg",
+    tone: "info",
   };
 }
 
@@ -148,20 +132,6 @@ export function markdownToDisplayItems(markdown) {
     .split(/\r?\n/)
     .map((line) => line.replace(/^#{1,6}\s+/, "").replace(/^[-*]\s+/, "").trim())
     .filter(Boolean);
-}
-
-function insightIcon(type) {
-  if (type === "pricing") return "icon-insight-price.svg";
-  if (type === "target_user") return "icon-insight-users.svg";
-  if (type === "agent_capability" || type === "comparative_feature") return "icon-insight-lightning.svg";
-  return "icon-insight-trend.svg";
-}
-
-function insightTone(status) {
-  if (status === "passed") return "success";
-  if (["blocked", "unsupported", "contradicted"].includes(status)) return "danger";
-  if (status === "downgraded") return "warning";
-  return "info";
 }
 
 function displayLabel(value) {

@@ -44,4 +44,3 @@ export const reportDetail = {
     "Clarify usage limits and procurement paths for growing teams.",
   ],
 };
-

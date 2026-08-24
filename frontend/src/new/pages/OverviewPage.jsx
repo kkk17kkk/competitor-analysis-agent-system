@@ -1,7 +1,7 @@
 import React from "react";
 import { Button, MetricCard, SectionHeader } from "../components/ui";
 import { Illustration } from "../components/Illustration";
-import { recentResearch, workspaceMetrics } from "../mock/research";
+import { recentResearch, workspaceMetrics } from "../demo/research";
 
 export function OverviewPage({ navigate }) {
   return (

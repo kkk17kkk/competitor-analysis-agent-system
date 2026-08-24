@@ -9,6 +9,7 @@ export function toResearchSummary(taskPayload) {
   const tickets = Array.isArray(result?.review_tickets) ? result.review_tickets : null;
 
   return {
+    dataSource: "backend",
     id: task?.task_id || null,
     title: report?.title || null,
     competitors: Array.isArray(task?.config?.competitors) ? task.config.competitors : [],

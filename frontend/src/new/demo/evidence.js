@@ -8,4 +8,3 @@ export const reviewItems = [
   { id: "RT-104", severity: "High", status: "Needs review", title: "Missing official pricing evidence", affected: "TRAE enterprise readiness and pricing insight", detail: "The current claim relies on secondary sources. Locate a current official pricing or procurement source before publication.", attempts: "1 of 2" },
   { id: "RT-108", severity: "Medium", status: "Needs review", title: "Security claim needs corroboration", affected: "Cursor enterprise governance risk", detail: "One source describes admin controls, but the privacy and retention policy still needs cross-checking.", attempts: "0 of 2" },
 ];
-

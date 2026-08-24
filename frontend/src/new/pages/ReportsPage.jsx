@@ -26,10 +26,11 @@ export function ReportsPage({ navigate }) {
     if (filter === "review") return report.reviewCount !== null && report.reviewCount > 0;
     return true;
   }), [filter, query, reports]);
+  const dataSource = !state.loading && !state.error ? (reports.length ? "backend" : "empty") : null;
 
   return (
     <div className="eg-page eg-reports-page">
-      <div className="eg-page-top"><SectionHeader eyebrow="Research library" title="Reports" description="Decision-ready competitive research, organized by evidence quality and review status." /><Button variant="primary" onClick={() => navigate("/research/new")}>New research</Button></div>
+      <div className="eg-page-top"><SectionHeader eyebrow="Research library" title="Reports" description="Decision-ready competitive research, organized by evidence quality and review status." /><div className="eg-page-actions">{dataSource && <Badge tone={dataSource === "backend" ? "info" : "neutral"}>{dataSource === "backend" ? "Backend data" : "Empty workspace"}</Badge>}<Button variant="primary" onClick={() => navigate("/research/new")}>New research</Button></div></div>
       <div className="eg-report-filters">
         <button className={filter === "all" ? "is-active" : ""} onClick={() => setFilter("all")}>All reports</button>
         <button className={filter === "complete" ? "is-active" : ""} onClick={() => setFilter("complete")}>Complete</button>
@@ -38,7 +39,8 @@ export function ReportsPage({ navigate }) {
       </div>
       {state.loading && <PageState title="Loading reports" body="Reading completed research from EvidenceGraph." />}
       {state.error && <PageState tone="danger" title="Reports unavailable" body={state.error} />}
-      {!state.loading && !state.error && visibleReports.length === 0 && <PageState title="No reports found" body="No backend research matches this view." />}
+      {!state.loading && !state.error && reports.length === 0 && <PageState dataSource="empty" title="No research yet" body="Start a research project to build your first evidence-backed competitive report." action={<Button variant="primary" onClick={() => navigate("/research/new")}>Start your first research</Button>} />}
+      {!state.loading && !state.error && reports.length > 0 && visibleReports.length === 0 && <PageState title="No reports match" body="Try another search or report status." />}
       {!state.loading && !state.error && visibleReports.length > 0 && <div className="eg-reports-table">
         <div className="eg-reports-head"><span>Research</span><span>Evidence coverage</span><span>Status</span><span>Updated</span><span></span></div>
         {visibleReports.map((report) => <ReportRow key={report.id} report={report} navigate={navigate} />)}
@@ -66,6 +68,6 @@ function statusTone(status) {
   return "warning";
 }
 
-function PageState({ title, body, tone = "neutral" }) {
-  return <section className={`eg-data-state eg-data-state--${tone}`} role={tone === "danger" ? "alert" : "status"}><h2>{title}</h2><p>{body}</p></section>;
+function PageState({ title, body, tone = "neutral", action, dataSource }) {
+  return <section data-data-source={dataSource} className={`eg-data-state eg-data-state--${tone}`} role={tone === "danger" ? "alert" : "status"}><h2>{title}</h2><p>{body}</p>{action && <div className="eg-data-state-action">{action}</div>}</section>;
 }

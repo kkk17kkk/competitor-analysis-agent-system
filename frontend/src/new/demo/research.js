@@ -18,4 +18,3 @@ export const researchDraft = {
   goal: "Understand how Cursor compares to leading AI coding agents across positioning, agent workflow, codebase context, pricing, enterprise adoption, and security posture. Identify strengths, gaps, and risks that should inform our roadmap and go-to-market strategy.",
   dimensions: ["Positioning", "Agent workflow", "Pricing", "Enterprise", "Security"],
 };
-

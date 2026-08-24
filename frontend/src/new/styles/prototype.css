@@ -36,6 +36,7 @@
 
 .eg-eyebrow, .eg-kicker { display: block; margin-bottom: 6px; color: var(--eg-brand-hover); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .eg-page-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+.eg-page-actions { display: flex; align-items: center; gap: 10px; }
 .eg-page-top > div > h1 { margin-bottom: 0; }
 .eg-section-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
 .eg-section-header h2 { margin-bottom: 2px; }
@@ -176,10 +177,16 @@
 .eg-data-state { padding: 28px; border: 1px dashed var(--eg-border-strong); border-radius: var(--eg-radius-lg); background: var(--eg-surface); }
 .eg-data-state h1, .eg-data-state h2, .eg-data-state h3 { margin-bottom: 4px; }
 .eg-data-state p { margin-bottom: 0; }
+.eg-data-state-action { margin-top: 18px; }
 .eg-data-state--danger { border-color: var(--eg-danger); background: var(--eg-danger-bg); }
 .eg-action-message { margin: 12px 0; padding: 10px 14px; border-radius: var(--eg-radius-sm); background: var(--eg-info-bg); color: var(--eg-text); font-size: 13px; }
 
 .eg-report-header { display: flex; justify-content: space-between; gap: 32px; margin-bottom: 20px; }
+.eg-backend-mode { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+.eg-demo-notice { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; padding: 14px 18px; border: 1px solid var(--eg-lilac); border-radius: var(--eg-radius-md); background: var(--eg-lilac-bg); }
+.eg-demo-notice > div { display: grid; }
+.eg-demo-notice strong { color: var(--eg-ink); }
+.eg-demo-notice span { color: var(--eg-muted); font-size: 12px; }
 .eg-report-header p { margin: 0 0 2px; font-size: 18px; }
 .eg-report-header p strong { color: var(--eg-success); }
 .eg-report-header small { color: var(--eg-muted); }
